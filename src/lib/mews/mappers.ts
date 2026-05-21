@@ -169,6 +169,7 @@ export function mapAccountingCategories(raw: MewsAccountingCategory[]): Accounti
     id: c.Id,
     name: c.Name,
     code: c.Code,
+    costCenterCode: c.CostCenterCode ?? null,
     externalIdentifier: c.ExternalIdentifier,
     type: c.Type,
   }));

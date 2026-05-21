@@ -38,7 +38,8 @@ export default function AccountingCategoriesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
-              <TableHead>Ledger Code</TableHead>
+              <TableHead>Code</TableHead>
+              <TableHead>Cost Center Code</TableHead>
               <TableHead>External ID</TableHead>
               <TableHead>Type</TableHead>
             </TableRow>
@@ -46,7 +47,7 @@ export default function AccountingCategoriesPage() {
           <TableBody>
             {categories.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-12">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
                   No accounting categories found.
                 </TableCell>
               </TableRow>
@@ -58,6 +59,15 @@ export default function AccountingCategoriesPage() {
                     {cat.code ? (
                       <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono font-medium">
                         {cat.code}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {cat.costCenterCode ? (
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono font-medium">
+                        {cat.costCenterCode}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
