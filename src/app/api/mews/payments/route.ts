@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllPayments, fetchAllAccounts, MewsApiError } from "@/lib/mews/client";
+import { fetchAllPayments, fetchAccountsForIds, MewsApiError } from "@/lib/mews/client";
 import { mapPayments } from "@/lib/mews/mappers";
 import { defaultStartUtc, defaultEndUtc } from "@/lib/utils";
 
@@ -9,10 +9,9 @@ export async function GET(req: NextRequest) {
   const endUtc = searchParams.get("endUtc") ?? defaultEndUtc();
 
   try {
-    const [rawPayments, rawAccounts] = await Promise.all([
-      fetchAllPayments({ StartUtc: startUtc, EndUtc: endUtc }),
-      fetchAllAccounts(),
-    ]);
+    const rawPayments = await fetchAllPayments({ StartUtc: startUtc, EndUtc: endUtc });
+    const accountIds = rawPayments.map((p) => p.AccountId);
+    const rawAccounts = await fetchAccountsForIds(accountIds);
     const payments = mapPayments(rawPayments, rawAccounts);
     return NextResponse.json({ payments });
   } catch (err) {

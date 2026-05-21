@@ -1,22 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { startOfMonth, endOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Header } from "@/components/layout/header";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
 import { AccountingItemsTable } from "@/components/accounting-items/accounting-items-table";
 import { useAccountingItems } from "@/hooks/use-accounting-items";
+import { last5DaysRange } from "@/lib/utils";
 
 export default function AccountingItemsPage() {
+  const defaults = last5DaysRange();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
-    to: endOfDay(new Date()),
+    from: defaults.from,
+    to: defaults.to,
   });
   const [applied, setApplied] = useState({
-    startUtc: startOfMonth(new Date()).toISOString(),
-    endUtc: endOfDay(new Date()).toISOString(),
+    startUtc: defaults.from.toISOString(),
+    endUtc: defaults.to.toISOString(),
   });
 
   function applyFilters() {

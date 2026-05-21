@@ -4,7 +4,7 @@ import {
   fetchAllPayments,
   fetchAllOrderItems,
   fetchAllOutletItems,
-  fetchAllAccounts,
+  fetchAccountsForIds,
   fetchAllServices,
   fetchAllOutlets,
   fetchAllAccountingCategories,
@@ -35,19 +35,15 @@ export async function POST(req: NextRequest) {
     const dateLabel = startUtc.slice(0, 10);
 
     if (type === "bills") {
-      const [rawBills, rawAccounts] = await Promise.all([
-        fetchAllBills({ StartUtc: startUtc, EndUtc: endUtc }),
-        fetchAllAccounts(),
-      ]);
+      const rawBills = await fetchAllBills({ StartUtc: startUtc, EndUtc: endUtc });
+      const rawAccounts = await fetchAccountsForIds(rawBills.map((b) => b.AccountId));
       csv = generateCsv(mapBills(rawBills, rawAccounts), billsCsvSchema);
     } else if (type === "payments") {
-      const [rawPayments, rawAccounts] = await Promise.all([
-        fetchAllPayments({ StartUtc: startUtc, EndUtc: endUtc }),
-        fetchAllAccounts(),
-      ]);
+      const rawPayments = await fetchAllPayments({ StartUtc: startUtc, EndUtc: endUtc });
+      const rawAccounts = await fetchAccountsForIds(rawPayments.map((p) => p.AccountId));
       csv = generateCsv(mapPayments(rawPayments, rawAccounts), paymentsCsvSchema);
     } else if (type === "accounting-items") {
-      const [rawOrderItems, outletResult, rawAccounts, rawServices, rawOutlets, rawCategories] =
+      const [rawOrderItems, outletResult, rawServices, rawOutlets, rawCategories] =
         await Promise.all([
           fetchAllOrderItems({ StartUtc: startUtc, EndUtc: endUtc }),
           fetchAllOutletItems({ StartUtc: startUtc, EndUtc: endUtc }).catch((err) => {
@@ -56,12 +52,12 @@ export async function POST(req: NextRequest) {
             }
             throw err;
           }),
-          fetchAllAccounts(),
           fetchAllServices(),
           fetchAllOutlets(),
           fetchAllAccountingCategories(),
         ]);
 
+      const rawAccounts = await fetchAccountsForIds(rawOrderItems.map((i) => i.AccountId));
       const items = [
         ...mapOrderItems(rawOrderItems, rawAccounts, rawServices, rawCategories),
         ...mapOutletItems(outletResult.outletItems, outletResult.outletBills, rawOutlets, rawCategories),

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   fetchAllOrderItems,
   fetchAllOutletItems,
-  fetchAllAccounts,
+  fetchAccountsForIds,
   fetchAllServices,
   fetchAllOutlets,
   fetchAllAccountingCategories,
@@ -17,31 +17,29 @@ export async function GET(req: NextRequest) {
   const endUtc = searchParams.get("endUtc") ?? defaultEndUtc();
 
   try {
-    const [rawOrderItems, outletResult, rawAccounts, rawServices, rawOutlets, rawCategories] =
+    // Step 1: fetch primary data in parallel
+    const [rawOrderItems, outletResult, rawServices, rawOutlets, rawCategories] =
       await Promise.all([
         fetchAllOrderItems({ StartUtc: startUtc, EndUtc: endUtc }),
         fetchAllOutletItems({ StartUtc: startUtc, EndUtc: endUtc }).catch((err) => {
-          // Outlet items are optional — return empty if endpoint unavailable
           if (err instanceof MewsApiError && (err.status === 404 || err.status === 400)) {
             return { outletItems: [], outletBills: [] };
           }
           throw err;
         }),
-        fetchAllAccounts(),
         fetchAllServices(),
         fetchAllOutlets(),
         fetchAllAccountingCategories(),
       ]);
 
-    const orderItems = mapOrderItems(rawOrderItems, rawAccounts, rawServices, rawCategories);
-    const outletItems = mapOutletItems(
-      outletResult.outletItems,
-      outletResult.outletBills,
-      rawOutlets,
-      rawCategories
-    );
+    // Step 2: fetch accounts only for the IDs we actually have
+    const accountIds = rawOrderItems.map((i) => i.AccountId);
+    const rawAccounts = await fetchAccountsForIds(accountIds);
 
-    const items = [...orderItems, ...outletItems];
+    const items = [
+      ...mapOrderItems(rawOrderItems, rawAccounts, rawServices, rawCategories),
+      ...mapOutletItems(outletResult.outletItems, outletResult.outletBills, rawOutlets, rawCategories),
+    ];
     return NextResponse.json({ items });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

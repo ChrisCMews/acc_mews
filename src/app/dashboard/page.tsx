@@ -1,22 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { startOfMonth, endOfDay } from "date-fns";
+import { endOfDay } from "date-fns";
 import { DollarSign, CreditCard, AlertCircle, FileText } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, last5DaysRange } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
 
 export default function DashboardPage() {
+  const defaults = last5DaysRange();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
-    to: endOfDay(new Date()),
+    from: defaults.from,
+    to: defaults.to,
   });
 
-  const startUtc = dateRange?.from?.toISOString() ?? startOfMonth(new Date()).toISOString();
+  const startUtc = dateRange?.from?.toISOString() ?? defaults.from.toISOString();
   const endUtc = dateRange?.to?.toISOString() ?? endOfDay(new Date()).toISOString();
 
   const { stats, isLoading, error } = useDashboardStats(startUtc, endUtc);

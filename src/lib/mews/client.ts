@@ -179,8 +179,10 @@ export async function fetchAllOutletItems(params: {
 }
 
 // --- Accounts ---
-// Tries the unified accounts/getAll endpoint first (newer API).
-// Falls back to customers/getAll for older demo environments.
+// Both accounts/getAll and customers/getAll require at least one filter —
+// you cannot fetch all accounts with an empty body.
+// We always fetch by the specific AccountIds extracted from the primary data.
+
 interface MewsCustomer {
   Id: string;
   FirstName: string | null;
@@ -192,13 +194,21 @@ interface MewsCustomersResponse {
   Cursor: string | null;
 }
 
-async function fetchAllCustomers(): Promise<MewsAccount[]> {
-  const customers = await paginatedFetch<MewsCustomer, MewsCustomersResponse>(
-    "/api/connector/v1/customers/getAll",
-    {},
-    (r) => r.Customers
+async function fetchCustomersByIds(ids: string[]): Promise<MewsAccount[]> {
+  // Batch into chunks of 1000 (API max per request)
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 1000) chunks.push(ids.slice(i, i + 1000));
+
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      paginatedFetch<MewsCustomer, MewsCustomersResponse>(
+        "/api/connector/v1/customers/getAll",
+        { CustomerIds: chunk },
+        (r) => r.Customers
+      )
+    )
   );
-  return customers.map((c) => ({
+  return results.flat().map((c) => ({
     Id: c.Id,
     Type: "Customer" as const,
     Name: [c.FirstName, c.LastName].filter(Boolean).join(" ") || null,
@@ -207,16 +217,30 @@ async function fetchAllCustomers(): Promise<MewsAccount[]> {
   }));
 }
 
-export async function fetchAllAccounts(): Promise<MewsAccount[]> {
+async function fetchAccountsByIds(ids: string[]): Promise<MewsAccount[]> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 1000) chunks.push(ids.slice(i, i + 1000));
+
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      paginatedFetch<MewsAccount, MewsAccountsResponse>(
+        "/api/connector/v1/accounts/getAll",
+        { AccountIds: chunk },
+        (r) => r.Accounts
+      )
+    )
+  );
+  return results.flat();
+}
+
+export async function fetchAccountsForIds(accountIds: string[]): Promise<MewsAccount[]> {
+  if (accountIds.length === 0) return [];
+  const unique = Array.from(new Set(accountIds));
   try {
-    return await paginatedFetch<MewsAccount, MewsAccountsResponse>(
-      "/api/connector/v1/accounts/getAll",
-      {},
-      (r) => r.Accounts
-    );
+    return await fetchAccountsByIds(unique);
   } catch (err) {
     if (err instanceof MewsApiError && err.status === 404) {
-      return fetchAllCustomers();
+      return fetchCustomersByIds(unique);
     }
     throw err;
   }

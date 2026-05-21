@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { startOfMonth, endOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ExportType } from "@/types/app";
+import { last5DaysRange } from "@/lib/utils";
 
 const exportOptions: { value: ExportType; label: string; description: string }[] = [
   { value: "bills", label: "Bills / Invoices", description: "All bills with tax breakdown" },
@@ -28,10 +28,7 @@ const exportOptions: { value: ExportType; label: string; description: string }[]
 
 export function ExportForm() {
   const [exportType, setExportType] = useState<ExportType>("bills");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: startOfMonth(new Date()),
-    to: endOfDay(new Date()),
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => last5DaysRange());
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
