@@ -57,7 +57,7 @@ export function mapBills(raw: MewsBill[], accounts: MewsAccount[]): Bill[] {
     netAmount: b.TaxedNet?.Value ?? 0,
     taxAmount: b.TaxedTax?.Value ?? 0,
     grossAmount: b.TaxedGross?.Value ?? 0,
-    currency: b.TaxedGross?.Currency ?? b.TaxedNet?.Currency ?? "USD",
+    currency: b.TaxedGross?.Currency ?? b.TaxedNet?.Currency ?? b.TaxedTax?.Currency ?? "",
     notes: b.Notes,
   }));
 }
@@ -73,7 +73,7 @@ export function mapPayments(raw: MewsPayment[], accounts: MewsAccount[]): Paymen
     state: p.State,
     type: p.Type,
     amount: p.Amount?.Value ?? 0,
-    currency: p.Amount?.Currency ?? "USD",
+    currency: p.Amount?.Currency ?? "",
     notes: p.Notes,
   }));
 }

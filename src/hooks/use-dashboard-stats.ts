@@ -14,11 +14,15 @@ export function useDashboardStats(startUtc: string, endUtc: string): {
   const stats = useMemo((): DashboardStats | null => {
     if (billsLoading || paymentsLoading) return null;
 
-    const currencies = new Set([
+    const allCurrencies = [
       ...bills.map((b) => b.currency),
       ...payments.map((p) => p.currency),
-    ]);
-    const primaryCurrency = currencies.values().next().value ?? "USD";
+    ].filter(Boolean);
+    const currencyFreq = new Map<string, number>();
+    for (const c of allCurrencies) currencyFreq.set(c, (currencyFreq.get(c) ?? 0) + 1);
+    const primaryCurrency =
+      Array.from(currencyFreq.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "USD";
+    const currencies = new Set(allCurrencies.filter(Boolean));
 
     const totalRevenue = bills
       .filter((b) => b.currency === primaryCurrency)
