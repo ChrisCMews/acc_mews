@@ -74,6 +74,31 @@ export default function SettingsPage() {
             </ol>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Access Control</CardTitle>
+            <CardDescription>
+              Protect the app with a username and password so only authorised users can open it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Set the following two environment variables in Vercel. Once both are present every
+              visitor will be prompted for credentials before the app loads. Leave either blank to
+              disable the prompt (e.g. for local development).
+            </p>
+            <div className="rounded-md border bg-muted/40 p-3 font-mono text-xs space-y-1">
+              <p>APP_USERNAME=your_username</p>
+              <p>APP_PASSWORD=a_strong_password</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The browser remembers the login for the session. Each team member can use the same
+              shared credentials, or you can set individual ones per Vercel environment
+              (Production / Preview).
+            </p>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
