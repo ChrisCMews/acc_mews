@@ -1,10 +1,19 @@
-import { NextResponse } from "next/server";
-import { fetchAllAccountingCategories } from "@/lib/mews/client";
+import { NextRequest, NextResponse } from "next/server";
+import { fetchAllAccountingCategories, MewsCallConfig } from "@/lib/mews/client";
 import { mapAccountingCategories } from "@/lib/mews/mappers";
 
-export async function GET() {
+function extractConfig(req: NextRequest): MewsCallConfig {
+  return {
+    clientToken: req.headers.get("x-mews-client-token") ?? undefined,
+    accessToken: req.headers.get("x-mews-access-token") ?? undefined,
+    baseUrl: req.headers.get("x-mews-base-url") ?? undefined,
+  };
+}
+
+export async function GET(req: NextRequest) {
+  const config = extractConfig(req);
   try {
-    const raw = await fetchAllAccountingCategories();
+    const raw = await fetchAllAccountingCategories(config);
     const categories = mapAccountingCategories(raw);
     return NextResponse.json({ categories });
   } catch (err) {

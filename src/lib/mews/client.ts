@@ -26,6 +26,12 @@ const CLIENT_NAME = process.env.MEWS_CLIENT_NAME ?? "MewsAccountingExport/1.0";
 const MAX_ITEMS = 10000;
 const PAGE_SIZE = 1000;
 
+export interface MewsCallConfig {
+  clientToken?: string;
+  accessToken?: string;
+  baseUrl?: string;
+}
+
 export class MewsApiError extends Error {
   constructor(
     public status: number,
@@ -39,12 +45,17 @@ export class MewsApiError extends Error {
 
 async function mewsPost<TResponse>(
   path: string,
-  body: Record<string, unknown>
+  body: Record<string, unknown>,
+  config?: MewsCallConfig
 ): Promise<TResponse> {
-  const url = `${BASE_URL}${path}`;
+  const baseUrl = config?.baseUrl || BASE_URL;
+  const clientToken = config?.clientToken || CLIENT_TOKEN;
+  const accessToken = config?.accessToken || ACCESS_TOKEN;
+
+  const url = `${baseUrl}${path}`;
   const payload = {
-    ClientToken: CLIENT_TOKEN,
-    AccessToken: ACCESS_TOKEN,
+    ClientToken: clientToken,
+    AccessToken: accessToken,
     Client: CLIENT_NAME,
     ...body,
   };
@@ -76,7 +87,8 @@ async function mewsPost<TResponse>(
 async function paginatedFetch<TItem, TResponse extends { Cursor: string | null }>(
   path: string,
   baseBody: Record<string, unknown>,
-  extractItems: (res: TResponse) => TItem[]
+  extractItems: (res: TResponse) => TItem[],
+  config?: MewsCallConfig
 ): Promise<TItem[]> {
   const all: TItem[] = [];
   let cursor: string | null = null;
@@ -85,7 +97,7 @@ async function paginatedFetch<TItem, TResponse extends { Cursor: string | null }
     const limitation: Record<string, unknown> = { Count: PAGE_SIZE };
     if (cursor) limitation.Cursor = cursor;
 
-    const res = await mewsPost<TResponse>(path, { ...baseBody, Limitation: limitation });
+    const res = await mewsPost<TResponse>(path, { ...baseBody, Limitation: limitation }, config);
     const items = extractItems(res);
     all.push(...items);
     cursor = res.Cursor;
@@ -99,59 +111,74 @@ async function paginatedFetch<TItem, TResponse extends { Cursor: string | null }
 // --- Bills ---
 // Filtered by IssuedUtc (invoice/receipt issue date).
 // Correct format: { IssuedUtc: { StartUtc, EndUtc } }  — NOT TimeFilter + flat dates.
-export async function fetchAllBills(params: {
-  StartUtc: string;
-  EndUtc: string;
-  State?: string;
-}): Promise<MewsBill[]> {
+export async function fetchAllBills(
+  params: {
+    StartUtc: string;
+    EndUtc: string;
+    State?: string;
+  },
+  config?: MewsCallConfig
+): Promise<MewsBill[]> {
   return paginatedFetch<MewsBill, MewsBillsResponse>(
     "/api/connector/v1/bills/getAll",
     {
       IssuedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
       ...(params.State ? { State: params.State } : {}),
     },
-    (r) => r.Bills
+    (r) => r.Bills,
+    config
   );
 }
 
 // --- Payments ---
 // Filtered by ChargedUtc (when payment was charged).
 // Correct format: { ChargedUtc: { StartUtc, EndUtc } }
-export async function fetchAllPayments(params: {
-  StartUtc: string;
-  EndUtc: string;
-}): Promise<MewsPayment[]> {
+export async function fetchAllPayments(
+  params: {
+    StartUtc: string;
+    EndUtc: string;
+  },
+  config?: MewsCallConfig
+): Promise<MewsPayment[]> {
   return paginatedFetch<MewsPayment, MewsPaymentsResponse>(
     "/api/connector/v1/payments/getAll",
     {
       ChargedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
     },
-    (r) => r.Payments
+    (r) => r.Payments,
+    config
   );
 }
 
 // --- Order Items (revenue line items) ---
 // Replaces deprecated accountingItems/getAll.
 // Filtered by ConsumedUtc (when the charge was consumed/posted).
-export async function fetchAllOrderItems(params: {
-  StartUtc: string;
-  EndUtc: string;
-}): Promise<MewsOrderItem[]> {
+export async function fetchAllOrderItems(
+  params: {
+    StartUtc: string;
+    EndUtc: string;
+  },
+  config?: MewsCallConfig
+): Promise<MewsOrderItem[]> {
   return paginatedFetch<MewsOrderItem, MewsOrderItemsResponse>(
     "/api/connector/v1/orderItems/getAll",
     {
       ConsumedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
     },
-    (r) => r.OrderItems
+    (r) => r.OrderItems,
+    config
   );
 }
 
 // --- Outlet Items (POS / point-of-sale items) ---
 // Separate from order items — covers non-Mews POS or hotel outlet transactions.
-export async function fetchAllOutletItems(params: {
-  StartUtc: string;
-  EndUtc: string;
-}): Promise<{ outletItems: MewsOutletItem[]; outletBills: MewsOutletBill[] }> {
+export async function fetchAllOutletItems(
+  params: {
+    StartUtc: string;
+    EndUtc: string;
+  },
+  config?: MewsCallConfig
+): Promise<{ outletItems: MewsOutletItem[]; outletBills: MewsOutletBill[] }> {
   const all: MewsOutletItem[] = [];
   const billMap = new Map<string, MewsOutletBill>();
   let cursor: string | null = null;
@@ -165,7 +192,8 @@ export async function fetchAllOutletItems(params: {
       {
         ConsumedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
         Limitation: limitation,
-      }
+      },
+      config
     );
 
     all.push(...res.OutletItems);
@@ -194,7 +222,7 @@ interface MewsCustomersResponse {
   Cursor: string | null;
 }
 
-async function fetchCustomersByIds(ids: string[]): Promise<MewsAccount[]> {
+async function fetchCustomersByIds(ids: string[], config?: MewsCallConfig): Promise<MewsAccount[]> {
   // Batch into chunks of 1000 (API max per request)
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 1000) chunks.push(ids.slice(i, i + 1000));
@@ -204,7 +232,8 @@ async function fetchCustomersByIds(ids: string[]): Promise<MewsAccount[]> {
       paginatedFetch<MewsCustomer, MewsCustomersResponse>(
         "/api/connector/v1/customers/getAll",
         { CustomerIds: chunk },
-        (r) => r.Customers
+        (r) => r.Customers,
+        config
       )
     )
   );
@@ -217,7 +246,7 @@ async function fetchCustomersByIds(ids: string[]): Promise<MewsAccount[]> {
   }));
 }
 
-async function fetchAccountsByIds(ids: string[]): Promise<MewsAccount[]> {
+async function fetchAccountsByIds(ids: string[], config?: MewsCallConfig): Promise<MewsAccount[]> {
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 1000) chunks.push(ids.slice(i, i + 1000));
 
@@ -226,21 +255,25 @@ async function fetchAccountsByIds(ids: string[]): Promise<MewsAccount[]> {
       paginatedFetch<MewsAccount, MewsAccountsResponse>(
         "/api/connector/v1/accounts/getAll",
         { AccountIds: chunk },
-        (r) => r.Accounts
+        (r) => r.Accounts,
+        config
       )
     )
   );
   return results.flat();
 }
 
-export async function fetchAccountsForIds(accountIds: string[]): Promise<MewsAccount[]> {
+export async function fetchAccountsForIds(
+  accountIds: string[],
+  config?: MewsCallConfig
+): Promise<MewsAccount[]> {
   if (accountIds.length === 0) return [];
   const unique = Array.from(new Set(accountIds));
   try {
-    return await fetchAccountsByIds(unique);
+    return await fetchAccountsByIds(unique, config);
   } catch (err) {
     if (err instanceof MewsApiError && err.status === 404) {
-      return fetchCustomersByIds(unique);
+      return fetchCustomersByIds(unique, config);
     }
     throw err;
   }
@@ -249,11 +282,12 @@ export async function fetchAccountsForIds(accountIds: string[]): Promise<MewsAcc
 // --- Services, Outlets, Accounting Categories ---
 // All return [] on 404 (optional enrichment data).
 
-export async function fetchAllServices(): Promise<MewsService[]> {
+export async function fetchAllServices(config?: MewsCallConfig): Promise<MewsService[]> {
   try {
     const res = await mewsPost<MewsServicesResponse>(
       "/api/connector/v1/services/getAll",
-      {}
+      {},
+      config
     );
     return res.Services;
   } catch (err) {
@@ -262,11 +296,12 @@ export async function fetchAllServices(): Promise<MewsService[]> {
   }
 }
 
-export async function fetchAllOutlets(): Promise<MewsOutlet[]> {
+export async function fetchAllOutlets(config?: MewsCallConfig): Promise<MewsOutlet[]> {
   try {
     const res = await mewsPost<MewsOutletsResponse>(
       "/api/connector/v1/outlets/getAll",
-      {}
+      {},
+      config
     );
     return res.Outlets;
   } catch (err) {
@@ -275,11 +310,14 @@ export async function fetchAllOutlets(): Promise<MewsOutlet[]> {
   }
 }
 
-export async function fetchAllAccountingCategories(): Promise<MewsAccountingCategory[]> {
+export async function fetchAllAccountingCategories(
+  config?: MewsCallConfig
+): Promise<MewsAccountingCategory[]> {
   try {
     const res = await mewsPost<MewsAccountingCategoriesResponse>(
       "/api/connector/v1/accountingCategories/getAll",
-      {}
+      {},
+      config
     );
     return res.AccountingCategories;
   } catch (err) {

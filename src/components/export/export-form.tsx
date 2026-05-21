@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import type { ExportType } from "@/types/app";
 import { last5DaysRange } from "@/lib/utils";
+import { getStoredCredentials } from "@/lib/credentials";
 
 const exportOptions: { value: ExportType; label: string; description: string }[] = [
   { value: "bills", label: "Bills / Invoices", description: "All bills with tax breakdown" },
@@ -41,9 +42,15 @@ export function ExportForm() {
     setIsLoading(true);
 
     try {
+      const creds = getStoredCredentials();
+      const credHeaders: Record<string, string> = {};
+      if (creds.clientToken) credHeaders["x-mews-client-token"] = creds.clientToken;
+      if (creds.accessToken) credHeaders["x-mews-access-token"] = creds.accessToken;
+      if (creds.baseUrl) credHeaders["x-mews-base-url"] = creds.baseUrl;
+
       const res = await fetch("/api/export", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...credHeaders },
         body: JSON.stringify({
           type: exportType,
           startUtc: dateRange.from.toISOString(),

@@ -9,11 +9,20 @@ import {
   fetchAllOutlets,
   fetchAllAccountingCategories,
   MewsApiError,
+  MewsCallConfig,
 } from "@/lib/mews/client";
 import { mapBills, mapPayments, mapOrderItems, mapOutletItems } from "@/lib/mews/mappers";
 import { generateCsv } from "@/lib/csv/generate";
 import { billsCsvSchema, paymentsCsvSchema, accountingItemsCsvSchema } from "@/lib/csv/schemas";
 import type { ExportType } from "@/types/app";
+
+function extractConfig(req: NextRequest): MewsCallConfig {
+  return {
+    clientToken: req.headers.get("x-mews-client-token") ?? undefined,
+    accessToken: req.headers.get("x-mews-access-token") ?? undefined,
+    baseUrl: req.headers.get("x-mews-base-url") ?? undefined,
+  };
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -30,34 +39,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const config = extractConfig(req);
+
   try {
     let csv = "";
     const dateLabel = startUtc.slice(0, 10);
 
     if (type === "bills") {
-      const rawBills = await fetchAllBills({ StartUtc: startUtc, EndUtc: endUtc });
-      const rawAccounts = await fetchAccountsForIds(rawBills.map((b) => b.AccountId));
+      const rawBills = await fetchAllBills({ StartUtc: startUtc, EndUtc: endUtc }, config);
+      const rawAccounts = await fetchAccountsForIds(rawBills.map((b) => b.AccountId), config);
       csv = generateCsv(mapBills(rawBills, rawAccounts), billsCsvSchema);
     } else if (type === "payments") {
-      const rawPayments = await fetchAllPayments({ StartUtc: startUtc, EndUtc: endUtc });
-      const rawAccounts = await fetchAccountsForIds(rawPayments.map((p) => p.AccountId));
+      const rawPayments = await fetchAllPayments({ StartUtc: startUtc, EndUtc: endUtc }, config);
+      const rawAccounts = await fetchAccountsForIds(rawPayments.map((p) => p.AccountId), config);
       csv = generateCsv(mapPayments(rawPayments, rawAccounts), paymentsCsvSchema);
     } else if (type === "accounting-items") {
       const [rawOrderItems, outletResult, rawServices, rawOutlets, rawCategories] =
         await Promise.all([
-          fetchAllOrderItems({ StartUtc: startUtc, EndUtc: endUtc }),
-          fetchAllOutletItems({ StartUtc: startUtc, EndUtc: endUtc }).catch((err) => {
+          fetchAllOrderItems({ StartUtc: startUtc, EndUtc: endUtc }, config),
+          fetchAllOutletItems({ StartUtc: startUtc, EndUtc: endUtc }, config).catch((err) => {
             if (err instanceof MewsApiError && (err.status === 404 || err.status === 400)) {
               return { outletItems: [], outletBills: [] };
             }
             throw err;
           }),
-          fetchAllServices(),
-          fetchAllOutlets(),
-          fetchAllAccountingCategories(),
+          fetchAllServices(config),
+          fetchAllOutlets(config),
+          fetchAllAccountingCategories(config),
         ]);
 
-      const rawAccounts = await fetchAccountsForIds(rawOrderItems.map((i) => i.AccountId));
+      const rawAccounts = await fetchAccountsForIds(rawOrderItems.map((i) => i.AccountId), config);
       const items = [
         ...mapOrderItems(rawOrderItems, rawAccounts, rawServices, rawCategories),
         ...mapOutletItems(outletResult.outletItems, outletResult.outletBills, rawOutlets, rawCategories),

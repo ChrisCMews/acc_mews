@@ -1,7 +1,6 @@
 import useSWR from "swr";
 import type { AccountingItem } from "@/types/app";
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+import { apiFetcher } from "@/lib/api-fetch";
 
 interface UseAccountingItemsParams {
   startUtc: string;
@@ -13,7 +12,7 @@ export function useAccountingItems({ startUtc, endUtc }: UseAccountingItemsParam
 
   const { data, error, isLoading, mutate } = useSWR<{ items: AccountingItem[]; error?: string }>(
     `/api/mews/accounting-items?${params.toString()}`,
-    fetcher
+    apiFetcher
   );
 
   return {

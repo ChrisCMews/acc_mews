@@ -1,12 +1,11 @@
 import useSWR from "swr";
 import type { AccountingCategory } from "@/types/app";
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+import { apiFetcher } from "@/lib/api-fetch";
 
 export function useAccountingCategories() {
   const { data, error, isLoading } = useSWR<{ categories: AccountingCategory[]; error?: string }>(
     "/api/mews/accounting-categories",
-    fetcher
+    apiFetcher
   );
 
   return {

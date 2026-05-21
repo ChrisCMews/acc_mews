@@ -1,7 +1,6 @@
 import useSWR from "swr";
 import type { Payment } from "@/types/app";
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+import { apiFetcher } from "@/lib/api-fetch";
 
 interface UsePaymentsParams {
   startUtc: string;
@@ -13,7 +12,7 @@ export function usePayments({ startUtc, endUtc }: UsePaymentsParams) {
 
   const { data, error, isLoading, mutate } = useSWR<{ payments: Payment[]; error?: string }>(
     `/api/mews/payments?${params.toString()}`,
-    fetcher
+    apiFetcher
   );
 
   return {

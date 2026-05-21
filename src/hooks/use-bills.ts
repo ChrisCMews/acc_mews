@@ -1,7 +1,6 @@
 import useSWR from "swr";
 import type { Bill, BillState } from "@/types/app";
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
+import { apiFetcher } from "@/lib/api-fetch";
 
 interface UseBillsParams {
   startUtc: string;
@@ -15,7 +14,7 @@ export function useBills({ startUtc, endUtc, state }: UseBillsParams) {
 
   const { data, error, isLoading, mutate } = useSWR<{ bills: Bill[]; error?: string }>(
     `/api/mews/bills?${params.toString()}`,
-    fetcher
+    apiFetcher
   );
 
   return {

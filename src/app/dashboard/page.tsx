@@ -5,6 +5,7 @@ import { endOfDay } from "date-fns";
 import { DollarSign, CreditCard, AlertCircle, FileText } from "lucide-react";
 import { Header } from "@/components/layout/header";
 import { StatsCard } from "@/components/dashboard/stats-card";
+import { CredentialsCard } from "@/components/dashboard/credentials-card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 import { formatCurrency, last5DaysRange } from "@/lib/utils";
@@ -69,6 +70,9 @@ export default function DashboardPage() {
             icon={FileText}
             isLoading={isLoading}
           />
+        </div>
+        <div className="mt-6">
+          <CredentialsCard />
         </div>
       </div>
     </div>
