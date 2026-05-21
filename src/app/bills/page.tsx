@@ -18,21 +18,21 @@ export default function BillsPage() {
   const [applied, setApplied] = useState({
     startUtc: startOfMonth(new Date()).toISOString(),
     endUtc: endOfDay(new Date()).toISOString(),
-    states: [] as string[],
+    state: undefined as BillState | "All" | undefined,
   });
 
   function applyFilters() {
     setApplied({
       startUtc: dateRange?.from?.toISOString() ?? applied.startUtc,
       endUtc: dateRange?.to?.toISOString() ?? applied.endUtc,
-      states: statusFilter === "All" ? [] : [statusFilter],
+      state: statusFilter,
     });
   }
 
   const { bills, isLoading, error } = useBills({
     startUtc: applied.startUtc,
     endUtc: applied.endUtc,
-    states: applied.states,
+    state: applied.state,
   });
 
   return (

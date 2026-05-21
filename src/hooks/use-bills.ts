@@ -1,17 +1,17 @@
 import useSWR from "swr";
-import type { Bill } from "@/types/app";
+import type { Bill, BillState } from "@/types/app";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 interface UseBillsParams {
   startUtc: string;
   endUtc: string;
-  states?: string[];
+  state?: BillState | "All";
 }
 
-export function useBills({ startUtc, endUtc, states = [] }: UseBillsParams) {
+export function useBills({ startUtc, endUtc, state }: UseBillsParams) {
   const params = new URLSearchParams({ startUtc, endUtc });
-  states.forEach((s) => params.append("state", s));
+  if (state && state !== "All") params.set("state", state);
 
   const { data, error, isLoading, mutate } = useSWR<{ bills: Bill[]; error?: string }>(
     `/api/mews/bills?${params.toString()}`,

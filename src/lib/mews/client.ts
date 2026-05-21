@@ -1,14 +1,17 @@
 import type {
   MewsBillsResponse,
   MewsPaymentsResponse,
-  MewsAccountingItemsResponse,
+  MewsOrderItemsResponse,
+  MewsOutletItemsResponse,
   MewsAccountsResponse,
   MewsServicesResponse,
   MewsOutletsResponse,
   MewsAccountingCategoriesResponse,
   MewsBill,
   MewsPayment,
-  MewsAccountingItem,
+  MewsOrderItem,
+  MewsOutletItem,
+  MewsOutletBill,
   MewsAccount,
   MewsService,
   MewsOutlet,
@@ -34,7 +37,10 @@ export class MewsApiError extends Error {
   }
 }
 
-async function mewsPost<TResponse>(path: string, body: Record<string, unknown>): Promise<TResponse> {
+async function mewsPost<TResponse>(
+  path: string,
+  body: Record<string, unknown>
+): Promise<TResponse> {
   const url = `${BASE_URL}${path}`;
   const payload = {
     ClientToken: CLIENT_TOKEN,
@@ -57,7 +63,6 @@ async function mewsPost<TResponse>(path: string, body: Record<string, unknown>):
     } catch {
       details = await res.text();
     }
-    // Include the path so the caller knows exactly which endpoint failed
     throw new MewsApiError(
       res.status,
       `Mews API error ${res.status} at ${path}: ${res.statusText}`,
@@ -79,11 +84,8 @@ async function paginatedFetch<TItem, TResponse extends { Cursor: string | null }
   do {
     const limitation: Record<string, unknown> = { Count: PAGE_SIZE };
     if (cursor) limitation.Cursor = cursor;
-    const body: Record<string, unknown> = {
-      ...baseBody,
-      Limitation: limitation,
-    };
-    const res = await mewsPost<TResponse>(path, body);
+
+    const res = await mewsPost<TResponse>(path, { ...baseBody, Limitation: limitation });
     const items = extractItems(res);
     all.push(...items);
     cursor = res.Cursor;
@@ -94,23 +96,27 @@ async function paginatedFetch<TItem, TResponse extends { Cursor: string | null }
   return all;
 }
 
+// --- Bills ---
+// Filtered by IssuedUtc (invoice/receipt issue date).
+// Correct format: { IssuedUtc: { StartUtc, EndUtc } }  — NOT TimeFilter + flat dates.
 export async function fetchAllBills(params: {
   StartUtc: string;
   EndUtc: string;
-  States?: string[];
+  State?: string;
 }): Promise<MewsBill[]> {
   return paginatedFetch<MewsBill, MewsBillsResponse>(
     "/api/connector/v1/bills/getAll",
     {
-      TimeFilter: "StartUtc",
-      StartUtc: params.StartUtc,
-      EndUtc: params.EndUtc,
-      ...(params.States?.length ? { States: params.States } : {}),
+      IssuedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
+      ...(params.State ? { State: params.State } : {}),
     },
     (r) => r.Bills
   );
 }
 
+// --- Payments ---
+// Filtered by ChargedUtc (when payment was charged).
+// Correct format: { ChargedUtc: { StartUtc, EndUtc } }
 export async function fetchAllPayments(params: {
   StartUtc: string;
   EndUtc: string;
@@ -118,30 +124,63 @@ export async function fetchAllPayments(params: {
   return paginatedFetch<MewsPayment, MewsPaymentsResponse>(
     "/api/connector/v1/payments/getAll",
     {
-      TimeFilter: "ChargedUtc",
-      StartUtc: params.StartUtc,
-      EndUtc: params.EndUtc,
+      ChargedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
     },
     (r) => r.Payments
   );
 }
 
-export async function fetchAllAccountingItems(params: {
+// --- Order Items (revenue line items) ---
+// Replaces deprecated accountingItems/getAll.
+// Filtered by ConsumedUtc (when the charge was consumed/posted).
+export async function fetchAllOrderItems(params: {
   StartUtc: string;
   EndUtc: string;
-}): Promise<MewsAccountingItem[]> {
-  return paginatedFetch<MewsAccountingItem, MewsAccountingItemsResponse>(
-    "/api/connector/v1/accountingItems/getAll",
+}): Promise<MewsOrderItem[]> {
+  return paginatedFetch<MewsOrderItem, MewsOrderItemsResponse>(
+    "/api/connector/v1/orderItems/getAll",
     {
-      TimeFilter: "Consumed",
-      StartUtc: params.StartUtc,
-      EndUtc: params.EndUtc,
+      ConsumedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
     },
-    (r) => r.AccountingItems
+    (r) => r.OrderItems
   );
 }
 
-// Legacy customer shape returned by /customers/getAll
+// --- Outlet Items (POS / point-of-sale items) ---
+// Separate from order items — covers non-Mews POS or hotel outlet transactions.
+export async function fetchAllOutletItems(params: {
+  StartUtc: string;
+  EndUtc: string;
+}): Promise<{ outletItems: MewsOutletItem[]; outletBills: MewsOutletBill[] }> {
+  const all: MewsOutletItem[] = [];
+  const billMap = new Map<string, MewsOutletBill>();
+  let cursor: string | null = null;
+
+  do {
+    const limitation: Record<string, unknown> = { Count: PAGE_SIZE };
+    if (cursor) limitation.Cursor = cursor;
+
+    const res = await mewsPost<MewsOutletItemsResponse>(
+      "/api/connector/v1/outletItems/getAll",
+      {
+        ConsumedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
+        Limitation: limitation,
+      }
+    );
+
+    all.push(...res.OutletItems);
+    res.OutletBills.forEach((b) => billMap.set(b.Id, b));
+    cursor = res.Cursor;
+
+    if (all.length >= MAX_ITEMS) break;
+  } while (cursor);
+
+  return { outletItems: all, outletBills: Array.from(billMap.values()) };
+}
+
+// --- Accounts ---
+// Tries the unified accounts/getAll endpoint first (newer API).
+// Falls back to customers/getAll for older demo environments.
 interface MewsCustomer {
   Id: string;
   FirstName: string | null;
@@ -170,7 +209,6 @@ async function fetchAllCustomers(): Promise<MewsAccount[]> {
 
 export async function fetchAllAccounts(): Promise<MewsAccount[]> {
   try {
-    // Prefer the unified accounts endpoint (newer API versions)
     return await paginatedFetch<MewsAccount, MewsAccountsResponse>(
       "/api/connector/v1/accounts/getAll",
       {},
@@ -178,16 +216,21 @@ export async function fetchAllAccounts(): Promise<MewsAccount[]> {
     );
   } catch (err) {
     if (err instanceof MewsApiError && err.status === 404) {
-      // Fall back to legacy customers endpoint (older demo environments)
       return fetchAllCustomers();
     }
     throw err;
   }
 }
 
+// --- Services, Outlets, Accounting Categories ---
+// All return [] on 404 (optional enrichment data).
+
 export async function fetchAllServices(): Promise<MewsService[]> {
   try {
-    const res = await mewsPost<MewsServicesResponse>("/api/connector/v1/services/getAll", {});
+    const res = await mewsPost<MewsServicesResponse>(
+      "/api/connector/v1/services/getAll",
+      {}
+    );
     return res.Services;
   } catch (err) {
     if (err instanceof MewsApiError && err.status === 404) return [];
@@ -197,7 +240,10 @@ export async function fetchAllServices(): Promise<MewsService[]> {
 
 export async function fetchAllOutlets(): Promise<MewsOutlet[]> {
   try {
-    const res = await mewsPost<MewsOutletsResponse>("/api/connector/v1/outlets/getAll", {});
+    const res = await mewsPost<MewsOutletsResponse>(
+      "/api/connector/v1/outlets/getAll",
+      {}
+    );
     return res.Outlets;
   } catch (err) {
     if (err instanceof MewsApiError && err.status === 404) return [];

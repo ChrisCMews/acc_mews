@@ -49,6 +49,7 @@ export interface AccountingItem {
   netAmount: number;
   taxAmount: number;
   currency: string;
+  source: "order" | "outlet";
 }
 
 export interface AccountingCategory {

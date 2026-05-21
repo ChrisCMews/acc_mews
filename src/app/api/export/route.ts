@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   fetchAllBills,
   fetchAllPayments,
-  fetchAllAccountingItems,
+  fetchAllOrderItems,
+  fetchAllOutletItems,
   fetchAllAccounts,
   fetchAllServices,
   fetchAllOutlets,
   fetchAllAccountingCategories,
+  MewsApiError,
 } from "@/lib/mews/client";
-import { mapBills, mapPayments, mapAccountingItems } from "@/lib/mews/mappers";
+import { mapBills, mapPayments, mapOrderItems, mapOutletItems } from "@/lib/mews/mappers";
 import { generateCsv } from "@/lib/csv/generate";
 import { billsCsvSchema, paymentsCsvSchema, accountingItemsCsvSchema } from "@/lib/csv/schemas";
 import type { ExportType } from "@/types/app";
@@ -22,7 +24,10 @@ export async function POST(req: NextRequest) {
   };
 
   if (!type || !startUtc || !endUtc) {
-    return NextResponse.json({ error: "Missing required fields: type, startUtc, endUtc" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Missing required fields: type, startUtc, endUtc" },
+      { status: 400 }
+    );
   }
 
   try {
@@ -42,17 +47,26 @@ export async function POST(req: NextRequest) {
       ]);
       csv = generateCsv(mapPayments(rawPayments, rawAccounts), paymentsCsvSchema);
     } else if (type === "accounting-items") {
-      const [rawItems, rawAccounts, rawServices, rawOutlets, rawCategories] = await Promise.all([
-        fetchAllAccountingItems({ StartUtc: startUtc, EndUtc: endUtc }),
-        fetchAllAccounts(),
-        fetchAllServices(),
-        fetchAllOutlets(),
-        fetchAllAccountingCategories(),
-      ]);
-      csv = generateCsv(
-        mapAccountingItems(rawItems, rawAccounts, rawServices, rawOutlets, rawCategories),
-        accountingItemsCsvSchema
-      );
+      const [rawOrderItems, outletResult, rawAccounts, rawServices, rawOutlets, rawCategories] =
+        await Promise.all([
+          fetchAllOrderItems({ StartUtc: startUtc, EndUtc: endUtc }),
+          fetchAllOutletItems({ StartUtc: startUtc, EndUtc: endUtc }).catch((err) => {
+            if (err instanceof MewsApiError && (err.status === 404 || err.status === 400)) {
+              return { outletItems: [], outletBills: [] };
+            }
+            throw err;
+          }),
+          fetchAllAccounts(),
+          fetchAllServices(),
+          fetchAllOutlets(),
+          fetchAllAccountingCategories(),
+        ]);
+
+      const items = [
+        ...mapOrderItems(rawOrderItems, rawAccounts, rawServices, rawCategories),
+        ...mapOutletItems(outletResult.outletItems, outletResult.outletBills, rawOutlets, rawCategories),
+      ];
+      csv = generateCsv(items, accountingItemsCsvSchema);
     } else {
       return NextResponse.json({ error: "Invalid export type" }, { status: 400 });
     }
@@ -65,6 +79,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const details = err instanceof MewsApiError ? err.details : undefined;
+    return NextResponse.json({ error: message, details }, { status: 502 });
   }
 }

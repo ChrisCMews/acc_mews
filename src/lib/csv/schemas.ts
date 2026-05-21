@@ -35,6 +35,7 @@ export const paymentsCsvSchema: CsvColumn<Payment>[] = [
 
 export const accountingItemsCsvSchema: CsvColumn<AccountingItem>[] = [
   { header: "Item ID",                value: (r) => r.id },
+  { header: "Source",                 value: (r) => r.source === "outlet" ? "Outlet" : "Order" },
   { header: "Account Name",           value: (r) => r.accountName },
   { header: "Bill ID",                value: (r) => r.billId ?? "" },
   { header: "Accounting Category",    value: (r) => r.accountingCategoryName ?? "" },

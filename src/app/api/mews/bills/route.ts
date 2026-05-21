@@ -7,11 +7,11 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const startUtc = searchParams.get("startUtc") ?? defaultStartUtc();
   const endUtc = searchParams.get("endUtc") ?? defaultEndUtc();
-  const states = searchParams.getAll("state");
+  const state = searchParams.get("state") ?? undefined;
 
   try {
     const [rawBills, rawAccounts] = await Promise.all([
-      fetchAllBills({ StartUtc: startUtc, EndUtc: endUtc, States: states.length ? states : undefined }),
+      fetchAllBills({ StartUtc: startUtc, EndUtc: endUtc, State: state }),
       fetchAllAccounts(),
     ]);
     const bills = mapBills(rawBills, rawAccounts);

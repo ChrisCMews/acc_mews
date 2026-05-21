@@ -3,15 +3,24 @@ export interface MewsCurrency {
   Currency: string;
 }
 
-export interface MewsLimitation {
-  Count: number;
-  Cursor?: string | null;
+// Richer monetary amount returned by orderItems (includes net/tax breakdown)
+export interface MewsAmount {
+  Currency: string;
+  NetValue: number | null;
+  GrossValue: number | null;
+  TaxValues: Array<{ Code: string; Value: number }> | null;
 }
 
 export interface MewsRequestBase {
   ClientToken: string;
   AccessToken: string;
   Client: string;
+}
+
+// Shared time interval filter object used by all endpoints
+export interface MewsTimeInterval {
+  StartUtc: string;
+  EndUtc: string;
 }
 
 // Bills
@@ -56,28 +65,54 @@ export interface MewsPaymentsResponse {
   Cursor: string | null;
 }
 
-// Accounting Items
-export interface MewsAccountingItem {
+// Order Items (revenue/charge line items — replaces deprecated accountingItems)
+export interface MewsOrderItem {
   Id: string;
   AccountId: string;
   BillId: string | null;
   ServiceId: string | null;
-  OutletId: string | null;
   AccountingCategoryId: string | null;
+  Name: string;
+  UnitCount: number;
+  UnitAmount: MewsAmount | null;
+  Amount: MewsAmount | null;
+  AccountingState: string;
+  Type: string;
   ConsumedUtc: string;
   ClosedUtc: string | null;
+  CreatedUtc: string;
+}
+
+export interface MewsOrderItemsResponse {
+  OrderItems: MewsOrderItem[];
+  Cursor: string | null;
+}
+
+// Outlet Items (POS / point-of-sale revenue items)
+export interface MewsOutletItem {
+  Id: string;
+  BillId: string | null;
+  AccountingCategoryId: string | null;
   Type: string;
   Name: string;
   UnitCount: number;
-  UnitCost: MewsCurrency | null;
-  TaxRate: number | null;
-  TaxCode: string | null;
-  Amount: MewsCurrency | null;
-  TaxAmount: MewsCurrency | null;
+  UnitAmount: MewsCurrency | null;
+  CreatedUtc: string;
+  ConsumedUtc: string;
+  Notes: string | null;
 }
 
-export interface MewsAccountingItemsResponse {
-  AccountingItems: MewsAccountingItem[];
+export interface MewsOutletBill {
+  Id: string;
+  OutletId: string;
+  Number: string | null;
+  ClosedUtc: string | null;
+  Notes: string | null;
+}
+
+export interface MewsOutletItemsResponse {
+  OutletItems: MewsOutletItem[];
+  OutletBills: MewsOutletBill[];
   Cursor: string | null;
 }
 
