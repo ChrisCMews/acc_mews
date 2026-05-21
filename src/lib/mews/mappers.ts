@@ -44,22 +44,34 @@ function taxRate(amount: MewsAmount | null | undefined): number | null {
 
 export function mapBills(raw: MewsBill[], accounts: MewsAccount[]): Bill[] {
   const accountMap = buildAccountMap(accounts);
-  return raw.map((b) => ({
-    id: b.Id,
-    number: b.Number,
-    accountId: b.AccountId,
-    accountName: accountMap.get(b.AccountId) ?? b.AccountId,
-    issuedAt: b.IssuedUtc,
-    dueAt: b.DueUtc,
-    paidAt: b.PaidUtc,
-    state: b.State,
-    type: b.Type,
-    netAmount: b.TaxedNet?.Value ?? 0,
-    taxAmount: b.TaxedTax?.Value ?? 0,
-    grossAmount: b.TaxedGross?.Value ?? 0,
-    currency: b.TaxedGross?.Currency ?? b.TaxedNet?.Currency ?? b.TaxedTax?.Currency ?? "",
-    notes: b.Notes,
-  }));
+  return raw.map((b) => {
+    const net = b.TaxedNet?.Value ?? null;
+    const tax = b.TaxedTax?.Value ?? null;
+    const gross = b.TaxedGross?.Value ?? null;
+
+    const netAmount = net ?? (gross !== null && tax !== null ? gross - tax : gross ?? 0);
+    const taxAmount = tax ?? (gross !== null && net !== null ? gross - net : 0);
+    const grossAmount = gross ?? (net !== null && tax !== null ? net + tax : net ?? 0);
+    const currency =
+      b.TaxedGross?.Currency ?? b.TaxedNet?.Currency ?? b.TaxedTax?.Currency ?? "";
+
+    return {
+      id: b.Id,
+      number: b.Number,
+      accountId: b.AccountId,
+      accountName: accountMap.get(b.AccountId) ?? b.AccountId,
+      issuedAt: b.IssuedUtc,
+      dueAt: b.DueUtc,
+      paidAt: b.PaidUtc,
+      state: b.State,
+      type: b.Type,
+      netAmount,
+      taxAmount,
+      grossAmount,
+      currency,
+      notes: b.Notes,
+    };
+  });
 }
 
 export function mapPayments(raw: MewsPayment[], accounts: MewsAccount[]): Payment[] {
