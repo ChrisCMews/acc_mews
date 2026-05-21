@@ -12,6 +12,7 @@ import {
   Settings,
   BookOpen,
   Building2,
+  Zap,
 } from "lucide-react";
 import { getActiveEnvironment, ENV_LABELS, ENV_BASE_URLS, type MewsEnvironment } from "@/lib/credentials";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/accounting-items", label: "Accounting Items", icon: BarChart3 },
   { href: "/accounting-categories", label: "Chart of Accounts", icon: BookOpen },
   { href: "/export", label: "Export CSV", icon: Download },
+  { href: "/export-api", label: "Export API", icon: Zap },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
