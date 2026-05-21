@@ -23,7 +23,7 @@ const CLIENT_NAME = process.env.MEWS_CLIENT_NAME ?? "MewsAccountingExport/1.0";
 const MAX_ITEMS = 10000;
 const PAGE_SIZE = 1000;
 
-class MewsApiError extends Error {
+export class MewsApiError extends Error {
   constructor(
     public status: number,
     message: string,
@@ -57,7 +57,12 @@ async function mewsPost<TResponse>(path: string, body: Record<string, unknown>):
     } catch {
       details = await res.text();
     }
-    throw new MewsApiError(res.status, `Mews API error ${res.status}: ${res.statusText}`, details);
+    // Include the path so the caller knows exactly which endpoint failed
+    throw new MewsApiError(
+      res.status,
+      `Mews API error ${res.status} at ${path}: ${res.statusText}`,
+      details
+    );
   }
 
   return res.json() as Promise<TResponse>;
@@ -111,7 +116,7 @@ export async function fetchAllPayments(params: {
   return paginatedFetch<MewsPayment, MewsPaymentsResponse>(
     "/api/connector/v1/payments/getAll",
     {
-      TimeFilter: "StartUtc",
+      TimeFilter: "ChargedUtc",
       StartUtc: params.StartUtc,
       EndUtc: params.EndUtc,
     },
@@ -134,28 +139,79 @@ export async function fetchAllAccountingItems(params: {
   );
 }
 
-export async function fetchAllAccounts(): Promise<MewsAccount[]> {
-  return paginatedFetch<MewsAccount, MewsAccountsResponse>(
-    "/api/connector/v1/accounts/getAll",
+// Legacy customer shape returned by /customers/getAll
+interface MewsCustomer {
+  Id: string;
+  FirstName: string | null;
+  LastName: string | null;
+  Email: string | null;
+}
+interface MewsCustomersResponse {
+  Customers: MewsCustomer[];
+  Cursor: string | null;
+}
+
+async function fetchAllCustomers(): Promise<MewsAccount[]> {
+  const customers = await paginatedFetch<MewsCustomer, MewsCustomersResponse>(
+    "/api/connector/v1/customers/getAll",
     {},
-    (r) => r.Accounts
+    (r) => r.Customers
   );
+  return customers.map((c) => ({
+    Id: c.Id,
+    Type: "Customer" as const,
+    Name: [c.FirstName, c.LastName].filter(Boolean).join(" ") || null,
+    Email: c.Email,
+    TaxIdentificationNumber: null,
+  }));
+}
+
+export async function fetchAllAccounts(): Promise<MewsAccount[]> {
+  try {
+    // Prefer the unified accounts endpoint (newer API versions)
+    return await paginatedFetch<MewsAccount, MewsAccountsResponse>(
+      "/api/connector/v1/accounts/getAll",
+      {},
+      (r) => r.Accounts
+    );
+  } catch (err) {
+    if (err instanceof MewsApiError && err.status === 404) {
+      // Fall back to legacy customers endpoint (older demo environments)
+      return fetchAllCustomers();
+    }
+    throw err;
+  }
 }
 
 export async function fetchAllServices(): Promise<MewsService[]> {
-  const res = await mewsPost<MewsServicesResponse>("/api/connector/v1/services/getAll", {});
-  return res.Services;
+  try {
+    const res = await mewsPost<MewsServicesResponse>("/api/connector/v1/services/getAll", {});
+    return res.Services;
+  } catch (err) {
+    if (err instanceof MewsApiError && err.status === 404) return [];
+    throw err;
+  }
 }
 
 export async function fetchAllOutlets(): Promise<MewsOutlet[]> {
-  const res = await mewsPost<MewsOutletsResponse>("/api/connector/v1/outlets/getAll", {});
-  return res.Outlets;
+  try {
+    const res = await mewsPost<MewsOutletsResponse>("/api/connector/v1/outlets/getAll", {});
+    return res.Outlets;
+  } catch (err) {
+    if (err instanceof MewsApiError && err.status === 404) return [];
+    throw err;
+  }
 }
 
 export async function fetchAllAccountingCategories(): Promise<MewsAccountingCategory[]> {
-  const res = await mewsPost<MewsAccountingCategoriesResponse>(
-    "/api/connector/v1/accountingCategories/getAll",
-    {}
-  );
-  return res.AccountingCategories;
+  try {
+    const res = await mewsPost<MewsAccountingCategoriesResponse>(
+      "/api/connector/v1/accountingCategories/getAll",
+      {}
+    );
+    return res.AccountingCategories;
+  } catch (err) {
+    if (err instanceof MewsApiError && err.status === 404) return [];
+    throw err;
+  }
 }
