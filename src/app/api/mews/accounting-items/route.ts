@@ -5,6 +5,7 @@ import {
   fetchAllServices,
   fetchAllOutlets,
   fetchAllAccountingCategories,
+  MewsApiError,
 } from "@/lib/mews/client";
 import { mapAccountingItems } from "@/lib/mews/mappers";
 import { defaultStartUtc, defaultEndUtc } from "@/lib/utils";
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ items });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const details = err instanceof MewsApiError ? err.details : undefined;
+    return NextResponse.json({ error: message, details }, { status: 502 });
   }
 }

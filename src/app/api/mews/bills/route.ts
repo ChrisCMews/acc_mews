@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllBills, fetchAllAccounts } from "@/lib/mews/client";
+import { fetchAllBills, fetchAllAccounts, MewsApiError } from "@/lib/mews/client";
 import { mapBills } from "@/lib/mews/mappers";
 import { defaultStartUtc, defaultEndUtc } from "@/lib/utils";
 
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ bills });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
+    const details = err instanceof MewsApiError ? err.details : undefined;
+    return NextResponse.json({ error: message, details }, { status: 502 });
   }
 }

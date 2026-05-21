@@ -77,9 +77,11 @@ async function paginatedFetch<TItem, TResponse extends { Cursor: string | null }
   let cursor: string | null = null;
 
   do {
+    const limitation: Record<string, unknown> = { Count: PAGE_SIZE };
+    if (cursor) limitation.Cursor = cursor;
     const body: Record<string, unknown> = {
       ...baseBody,
-      Limitation: { Count: PAGE_SIZE, Cursor: cursor },
+      Limitation: limitation,
     };
     const res = await mewsPost<TResponse>(path, body);
     const items = extractItems(res);
