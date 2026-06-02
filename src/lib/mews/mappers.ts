@@ -1,45 +1,19 @@
 import type {
   MewsBill,
   MewsPayment,
-  MewsOrderItem,
+  MewsLedgerEntry,
   MewsOutletItem,
   MewsOutletBill,
   MewsAccount,
-  MewsService,
   MewsOutlet,
   MewsAccountingCategory,
-  MewsAmount,
 } from "./types";
-import type { Bill, Payment, AccountingItem, AccountingCategory } from "@/types/app";
+import type { Bill, Payment, AccountingItem, AccountingCategory, LedgerBalance } from "@/types/app";
 
 function buildAccountMap(accounts: MewsAccount[]): Map<string, string> {
   return new Map(
     accounts.map((a) => [a.Id, a.Name ?? `Account ${a.Id.slice(0, 8)}`])
   );
-}
-
-// MewsAmount (from orderItems) has NetValue/GrossValue; MewsCurrency has just Value.
-function grossValue(amount: MewsAmount | null | undefined): number {
-  if (!amount) return 0;
-  return amount.GrossValue ?? amount.NetValue ?? 0;
-}
-
-function netValue(amount: MewsAmount | null | undefined): number {
-  if (!amount) return 0;
-  return amount.NetValue ?? 0;
-}
-
-function taxValue(amount: MewsAmount | null | undefined): number {
-  if (!amount) return 0;
-  return (amount.TaxValues ?? []).reduce((s, t) => s + t.Value, 0);
-}
-
-function taxRate(amount: MewsAmount | null | undefined): number | null {
-  if (!amount?.TaxValues?.length) return null;
-  const gross = grossValue(amount);
-  const net = netValue(amount);
-  if (!net || net === 0) return null;
-  return Math.round(((gross - net) / net) * 100) / 100;
 }
 
 export function mapBills(raw: MewsBill[], accounts: MewsAccount[]): Bill[] {
@@ -90,46 +64,60 @@ export function mapPayments(raw: MewsPayment[], accounts: MewsAccount[]): Paymen
   }));
 }
 
-export function mapOrderItems(
-  raw: MewsOrderItem[],
+export function mapLedgerEntries(
+  raw: MewsLedgerEntry[],
   accounts: MewsAccount[],
-  services: MewsService[],
   categories: MewsAccountingCategory[]
 ): AccountingItem[] {
   const accountMap = buildAccountMap(accounts);
-  const serviceMap = new Map(services.map((s) => [s.Id, s.Name]));
   const categoryMap = new Map(categories.map((c) => [c.Id, c]));
 
-  return raw.map((item) => {
-    const category = item.AccountingCategoryId
-      ? categoryMap.get(item.AccountingCategoryId)
+  return raw.map((entry) => {
+    const category = entry.AccountingCategoryId
+      ? categoryMap.get(entry.AccountingCategoryId)
       : undefined;
-    const amt = item.Amount ?? item.UnitAmount;
+    const amount = entry.Amount?.Value ?? 0;
+    const currency = entry.Amount?.Currency ?? "";
+    const accountId = entry.AccountId ?? "";
 
     return {
-      id: item.Id,
-      accountId: item.AccountId,
-      accountName: accountMap.get(item.AccountId) ?? item.AccountId,
-      billId: item.BillId,
-      serviceId: item.ServiceId,
-      serviceName: item.ServiceId ? (serviceMap.get(item.ServiceId) ?? null) : null,
+      id: entry.Id,
+      accountId,
+      accountName: accountId ? (accountMap.get(accountId) ?? accountId) : "—",
+      billId: entry.BillId ?? null,
+      serviceId: null,
+      serviceName: null,
       outletId: null,
       outletName: null,
-      accountingCategoryId: item.AccountingCategoryId,
+      accountingCategoryId: entry.AccountingCategoryId,
       accountingCategoryName: category?.Name ?? null,
       ledgerAccountCode: category?.Code ?? null,
-      consumedAt: item.ConsumedUtc,
-      type: item.Type,
-      name: item.Name,
-      unitCount: item.UnitCount,
-      unitCost: netValue(item.UnitAmount) / Math.max(item.UnitCount, 1),
-      taxRate: taxRate(amt),
-      netAmount: netValue(amt) * item.UnitCount,
-      taxAmount: taxValue(amt) * item.UnitCount,
-      currency: amt?.Currency ?? "USD",
-      source: "order" as const,
+      consumedAt: entry.CreatedUtc,
+      type: entry.Type,
+      name: category?.Name ?? entry.Type,
+      unitCount: 1,
+      unitCost: amount,
+      taxRate: null,
+      netAmount: amount,
+      taxAmount: 0,
+      currency,
+      source: "ledger" as const,
     };
   });
+}
+
+export function mapLedgerBalances(
+  raw: import("./types").MewsLedgerBalance[],
+  accounts: MewsAccount[]
+): LedgerBalance[] {
+  const accountMap = buildAccountMap(accounts);
+  return raw.map((b) => ({
+    accountId: b.AccountId ?? "",
+    accountName: b.AccountId ? (accountMap.get(b.AccountId) ?? b.AccountId) : "—",
+    ledgerType: b.LedgerType,
+    amount: b.Amount?.Value ?? 0,
+    currency: b.Amount?.Currency ?? "",
+  }));
 }
 
 export function mapOutletItems(

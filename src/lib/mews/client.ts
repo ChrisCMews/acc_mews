@@ -1,7 +1,8 @@
 import type {
   MewsBillsResponse,
   MewsPaymentsResponse,
-  MewsOrderItemsResponse,
+  MewsLedgerEntriesResponse,
+  MewsLedgerBalancesResponse,
   MewsOutletItemsResponse,
   MewsAccountsResponse,
   MewsServicesResponse,
@@ -9,7 +10,8 @@ import type {
   MewsAccountingCategoriesResponse,
   MewsBill,
   MewsPayment,
-  MewsOrderItem,
+  MewsLedgerEntry,
+  MewsLedgerBalance,
   MewsOutletItem,
   MewsOutletBill,
   MewsAccount,
@@ -150,24 +152,50 @@ export async function fetchAllPayments(
   );
 }
 
-// --- Order Items (revenue line items) ---
-// Replaces deprecated accountingItems/getAll.
-// Filtered by ConsumedUtc (when the charge was consumed/posted).
-export async function fetchAllOrderItems(
+// --- Ledger Entries (replaces orderItems/getAll) ---
+// Filtered by CreatedUtc. These are the actual ledger transactions.
+export async function fetchAllLedgerEntries(
   params: {
     StartUtc: string;
     EndUtc: string;
   },
   config?: MewsCallConfig
-): Promise<MewsOrderItem[]> {
-  return paginatedFetch<MewsOrderItem, MewsOrderItemsResponse>(
-    "/api/connector/v1/orderItems/getAll",
+): Promise<MewsLedgerEntry[]> {
+  return paginatedFetch<MewsLedgerEntry, MewsLedgerEntriesResponse>(
+    "/api/connector/v1/ledgerEntries/getAll",
     {
-      ConsumedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
+      CreatedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
     },
-    (r) => r.OrderItems,
+    (r) => r.LedgerEntries,
     config
   );
+}
+
+// --- Ledger Balances (aggregate totals per account/ledger type) ---
+// Filtered by a Date interval and optionally by LedgerTypes.
+// LedgerTypes: Revenue, Tax, Payment, Deposit, Guest, City, NonRevenue
+export async function fetchAllLedgerBalances(
+  params: {
+    StartUtc: string;
+    EndUtc: string;
+    LedgerTypes?: string[];
+  },
+  config?: MewsCallConfig
+): Promise<MewsLedgerBalance[]> {
+  try {
+    const res = await mewsPost<MewsLedgerBalancesResponse>(
+      "/api/connector/v1/ledgerBalances/getAll",
+      {
+        Date: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
+        ...(params.LedgerTypes ? { LedgerTypes: params.LedgerTypes } : {}),
+      },
+      config
+    );
+    return res.LedgerBalances;
+  } catch (err) {
+    if (err instanceof MewsApiError && (err.status === 404 || err.status === 400)) return [];
+    throw err;
+  }
 }
 
 // --- Outlet Items (POS / point-of-sale items) ---

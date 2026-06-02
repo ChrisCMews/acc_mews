@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  fetchAllOrderItems,
+  fetchAllLedgerEntries,
+  fetchAllLedgerBalances,
   fetchAllOutletItems,
   fetchAccountsForIds,
-  fetchAllServices,
   fetchAllOutlets,
   fetchAllAccountingCategories,
   MewsApiError,
   MewsCallConfig,
 } from "@/lib/mews/client";
-import { mapOrderItems, mapOutletItems } from "@/lib/mews/mappers";
+import { mapLedgerEntries, mapLedgerBalances, mapOutletItems } from "@/lib/mews/mappers";
 import { defaultStartUtc, defaultEndUtc } from "@/lib/utils";
 
 function extractConfig(req: NextRequest): MewsCallConfig {
@@ -27,30 +27,34 @@ export async function GET(req: NextRequest) {
   const config = extractConfig(req);
 
   try {
-    // Step 1: fetch primary data in parallel
-    const [rawOrderItems, outletResult, rawServices, rawOutlets, rawCategories] =
+    // Fetch ledger entries, balances, outlet items, and reference data in parallel
+    const [rawLedgerEntries, rawBalances, outletResult, rawOutlets, rawCategories] =
       await Promise.all([
-        fetchAllOrderItems({ StartUtc: startUtc, EndUtc: endUtc }, config),
+        fetchAllLedgerEntries({ StartUtc: startUtc, EndUtc: endUtc }, config),
+        fetchAllLedgerBalances({ StartUtc: startUtc, EndUtc: endUtc }, config),
         fetchAllOutletItems({ StartUtc: startUtc, EndUtc: endUtc }, config).catch((err) => {
           if (err instanceof MewsApiError && (err.status === 404 || err.status === 400)) {
             return { outletItems: [], outletBills: [] };
           }
           throw err;
         }),
-        fetchAllServices(config),
         fetchAllOutlets(config),
         fetchAllAccountingCategories(config),
       ]);
 
-    // Step 2: fetch accounts only for the IDs we actually have
-    const accountIds = rawOrderItems.map((i) => i.AccountId);
+    // Fetch accounts only for the IDs present in ledger entries
+    const accountIds = rawLedgerEntries
+      .map((e) => e.AccountId)
+      .filter((id): id is string => !!id);
     const rawAccounts = await fetchAccountsForIds(accountIds, config);
 
     const items = [
-      ...mapOrderItems(rawOrderItems, rawAccounts, rawServices, rawCategories),
+      ...mapLedgerEntries(rawLedgerEntries, rawAccounts, rawCategories),
       ...mapOutletItems(outletResult.outletItems, outletResult.outletBills, rawOutlets, rawCategories),
     ];
-    return NextResponse.json({ items });
+    const balances = mapLedgerBalances(rawBalances, rawAccounts);
+
+    return NextResponse.json({ items, balances });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     const details = err instanceof MewsApiError ? err.details : undefined;

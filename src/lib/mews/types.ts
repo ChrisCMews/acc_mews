@@ -65,27 +65,32 @@ export interface MewsPaymentsResponse {
   Cursor: string | null;
 }
 
-// Order Items (revenue/charge line items — replaces deprecated accountingItems)
-export interface MewsOrderItem {
+// Ledger Entries (actual ledger transactions — replaces orderItems)
+export interface MewsLedgerEntry {
   Id: string;
-  AccountId: string;
-  BillId: string | null;
-  ServiceId: string | null;
+  AccountId: string | null;
   AccountingCategoryId: string | null;
-  Name: string;
-  UnitCount: number;
-  UnitAmount: MewsAmount | null;
-  Amount: MewsAmount | null;
-  AccountingState: string;
+  Amount: MewsCurrency;
   Type: string;
-  ConsumedUtc: string;
-  ClosedUtc: string | null;
   CreatedUtc: string;
+  BillId?: string | null;
+  Notes?: string | null;
 }
 
-export interface MewsOrderItemsResponse {
-  OrderItems: MewsOrderItem[];
+export interface MewsLedgerEntriesResponse {
+  LedgerEntries: MewsLedgerEntry[];
   Cursor: string | null;
+}
+
+// Ledger Balances (aggregate totals per account/ledger type)
+export interface MewsLedgerBalance {
+  AccountId: string | null;
+  LedgerType: string;
+  Amount: MewsCurrency;
+}
+
+export interface MewsLedgerBalancesResponse {
+  LedgerBalances: MewsLedgerBalance[];
 }
 
 // Outlet Items (POS / point-of-sale revenue items)

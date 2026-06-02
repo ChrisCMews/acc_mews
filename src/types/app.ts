@@ -49,7 +49,7 @@ export interface AccountingItem {
   netAmount: number;
   taxAmount: number;
   currency: string;
-  source: "order" | "outlet";
+  source: "ledger" | "outlet";
 }
 
 export interface AccountingCategory {
@@ -59,6 +59,14 @@ export interface AccountingCategory {
   costCenterCode: string | null;
   externalIdentifier: string | null;
   type: string | null;
+}
+
+export interface LedgerBalance {
+  accountId: string;
+  accountName: string;
+  ledgerType: string;
+  amount: number;
+  currency: string;
 }
 
 export interface DashboardStats {
