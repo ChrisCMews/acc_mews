@@ -36,52 +36,44 @@ export async function GET(req: NextRequest) {
   const baseUrl = config.baseUrl || DEFAULT_BASE_URL;
 
   const now = new Date();
-  const thirtyDaysAgo = new Date(now);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const interval = { StartUtc: thirtyDaysAgo.toISOString(), EndUtc: now.toISOString() };
+  const ninetyDaysAgo = new Date(now);
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  const interval = { StartUtc: ninetyDaysAgo.toISOString(), EndUtc: now.toISOString() };
 
-  // Fetch 2 raw bills to inspect the actual amount field structure
+  // Fetch 3 raw bills — return the full object so we can see every field
   const billsRaw = await fetchRaw(
     "/api/connector/v1/bills/getAll",
-    { IssuedUtc: interval, Limitation: { Count: 2 } },
+    { IssuedUtc: interval, Limitation: { Count: 3 } },
     config
   );
 
-  // Fetch 2 raw payments for the same reason
+  // Also try UpdatedUtc filter in case IssuedUtc returns nothing
+  const billsUpdated = await fetchRaw(
+    "/api/connector/v1/bills/getAll",
+    { UpdatedUtc: interval, Limitation: { Count: 3 } },
+    config
+  );
+
+  // Fetch 3 raw payments
   const paymentsRaw = await fetchRaw(
     "/api/connector/v1/payments/getAll",
-    { ChargedUtc: interval, Limitation: { Count: 2 } },
+    { ChargedUtc: interval, Limitation: { Count: 3 } },
     config
   );
-
-  // Summarise what amount fields are present on each bill
-  const billSample = billsRaw.ok
-    ? (billsRaw.body?.Bills ?? []).map((b: Record<string, unknown>) => ({
-        Id: b.Id,
-        State: b.State,
-        Type: b.Type,
-        TaxedNet: b.TaxedNet,
-        TaxedTax: b.TaxedTax,
-        TaxedGross: b.TaxedGross,
-        // capture any other amount-like fields
-        Revenue: b.Revenue,
-        Amount: b.Amount,
-      }))
-    : billsRaw;
-
-  const paymentSample = paymentsRaw.ok
-    ? (paymentsRaw.body?.Payments ?? []).map((p: Record<string, unknown>) => ({
-        Id: p.Id,
-        State: p.State,
-        Amount: p.Amount,
-        Currency: p.Currency,
-      }))
-    : paymentsRaw;
 
   return NextResponse.json({
     activeBaseUrl: baseUrl,
     usingCustomCredentials: !!(config.clientToken || config.accessToken),
-    billSample,
-    paymentSample,
+    dateRange: interval,
+    // Full raw objects so we can inspect every field
+    billsByIssuedUtc: billsRaw.ok
+      ? { count: billsRaw.body?.Bills?.length ?? 0, sample: billsRaw.body?.Bills ?? [] }
+      : billsRaw,
+    billsByUpdatedUtc: billsUpdated.ok
+      ? { count: billsUpdated.body?.Bills?.length ?? 0, sample: billsUpdated.body?.Bills ?? [] }
+      : billsUpdated,
+    payments: paymentsRaw.ok
+      ? { count: paymentsRaw.body?.Payments?.length ?? 0, sample: paymentsRaw.body?.Payments ?? [] }
+      : paymentsRaw,
   });
 }
