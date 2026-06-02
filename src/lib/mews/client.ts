@@ -1,22 +1,11 @@
 import type {
   MewsBillsResponse,
   MewsPaymentsResponse,
-  MewsLedgerEntriesResponse,
-  MewsLedgerBalancesResponse,
-  MewsOutletItemsResponse,
   MewsAccountsResponse,
-  MewsServicesResponse,
-  MewsOutletsResponse,
   MewsAccountingCategoriesResponse,
   MewsBill,
   MewsPayment,
-  MewsLedgerEntry,
-  MewsLedgerBalance,
-  MewsOutletItem,
-  MewsOutletBill,
   MewsAccount,
-  MewsService,
-  MewsOutlet,
   MewsAccountingCategory,
 } from "./types";
 
@@ -111,14 +100,8 @@ async function paginatedFetch<TItem, TResponse extends { Cursor: string | null }
 }
 
 // --- Bills ---
-// Filtered by IssuedUtc (invoice/receipt issue date).
-// Correct format: { IssuedUtc: { StartUtc, EndUtc } }  — NOT TimeFilter + flat dates.
 export async function fetchAllBills(
-  params: {
-    StartUtc: string;
-    EndUtc: string;
-    State?: string;
-  },
+  params: { StartUtc: string; EndUtc: string; State?: string },
   config?: MewsCallConfig
 ): Promise<MewsBill[]> {
   return paginatedFetch<MewsBill, MewsBillsResponse>(
@@ -133,13 +116,8 @@ export async function fetchAllBills(
 }
 
 // --- Payments ---
-// Filtered by ChargedUtc (when payment was charged).
-// Correct format: { ChargedUtc: { StartUtc, EndUtc } }
 export async function fetchAllPayments(
-  params: {
-    StartUtc: string;
-    EndUtc: string;
-  },
+  params: { StartUtc: string; EndUtc: string },
   config?: MewsCallConfig
 ): Promise<MewsPayment[]> {
   return paginatedFetch<MewsPayment, MewsPaymentsResponse>(
@@ -152,93 +130,7 @@ export async function fetchAllPayments(
   );
 }
 
-// --- Ledger Entries (replaces orderItems/getAll) ---
-// Filtered by CreatedUtc. These are the actual ledger transactions.
-export async function fetchAllLedgerEntries(
-  params: {
-    StartUtc: string;
-    EndUtc: string;
-  },
-  config?: MewsCallConfig
-): Promise<MewsLedgerEntry[]> {
-  return paginatedFetch<MewsLedgerEntry, MewsLedgerEntriesResponse>(
-    "/api/connector/v1/ledgerEntries/getAll",
-    {
-      CreatedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
-    },
-    (r) => r.LedgerEntries,
-    config
-  );
-}
-
-// --- Ledger Balances (aggregate totals per account/ledger type) ---
-// Filtered by a Date interval and optionally by LedgerTypes.
-// LedgerTypes: Revenue, Tax, Payment, Deposit, Guest, City, NonRevenue
-export async function fetchAllLedgerBalances(
-  params: {
-    StartUtc: string;
-    EndUtc: string;
-    LedgerTypes?: string[];
-  },
-  config?: MewsCallConfig
-): Promise<MewsLedgerBalance[]> {
-  try {
-    const res = await mewsPost<MewsLedgerBalancesResponse>(
-      "/api/connector/v1/ledgerBalances/getAll",
-      {
-        Date: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
-        ...(params.LedgerTypes ? { LedgerTypes: params.LedgerTypes } : {}),
-      },
-      config
-    );
-    return res.LedgerBalances;
-  } catch (err) {
-    if (err instanceof MewsApiError && (err.status === 404 || err.status === 400)) return [];
-    throw err;
-  }
-}
-
-// --- Outlet Items (POS / point-of-sale items) ---
-// Separate from order items — covers non-Mews POS or hotel outlet transactions.
-export async function fetchAllOutletItems(
-  params: {
-    StartUtc: string;
-    EndUtc: string;
-  },
-  config?: MewsCallConfig
-): Promise<{ outletItems: MewsOutletItem[]; outletBills: MewsOutletBill[] }> {
-  const all: MewsOutletItem[] = [];
-  const billMap = new Map<string, MewsOutletBill>();
-  let cursor: string | null = null;
-
-  do {
-    const limitation: Record<string, unknown> = { Count: PAGE_SIZE };
-    if (cursor) limitation.Cursor = cursor;
-
-    const res = await mewsPost<MewsOutletItemsResponse>(
-      "/api/connector/v1/outletItems/getAll",
-      {
-        ConsumedUtc: { StartUtc: params.StartUtc, EndUtc: params.EndUtc },
-        Limitation: limitation,
-      },
-      config
-    );
-
-    all.push(...res.OutletItems);
-    res.OutletBills.forEach((b) => billMap.set(b.Id, b));
-    cursor = res.Cursor;
-
-    if (all.length >= MAX_ITEMS) break;
-  } while (cursor);
-
-  return { outletItems: all, outletBills: Array.from(billMap.values()) };
-}
-
 // --- Accounts ---
-// Both accounts/getAll and customers/getAll require at least one filter —
-// you cannot fetch all accounts with an empty body.
-// We always fetch by the specific AccountIds extracted from the primary data.
-
 interface MewsCustomer {
   Id: string;
   FirstName: string | null;
@@ -251,7 +143,6 @@ interface MewsCustomersResponse {
 }
 
 async function fetchCustomersByIds(ids: string[], config?: MewsCallConfig): Promise<MewsAccount[]> {
-  // Batch into chunks of 1000 (API max per request)
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += 1000) chunks.push(ids.slice(i, i + 1000));
 
@@ -307,37 +198,7 @@ export async function fetchAccountsForIds(
   }
 }
 
-// --- Services, Outlets, Accounting Categories ---
-// All return [] on 404 (optional enrichment data).
-
-export async function fetchAllServices(config?: MewsCallConfig): Promise<MewsService[]> {
-  try {
-    const res = await mewsPost<MewsServicesResponse>(
-      "/api/connector/v1/services/getAll",
-      {},
-      config
-    );
-    return res.Services;
-  } catch (err) {
-    if (err instanceof MewsApiError && err.status === 404) return [];
-    throw err;
-  }
-}
-
-export async function fetchAllOutlets(config?: MewsCallConfig): Promise<MewsOutlet[]> {
-  try {
-    const res = await mewsPost<MewsOutletsResponse>(
-      "/api/connector/v1/outlets/getAll",
-      {},
-      config
-    );
-    return res.Outlets;
-  } catch (err) {
-    if (err instanceof MewsApiError && err.status === 404) return [];
-    throw err;
-  }
-}
-
+// --- Accounting Categories ---
 export async function fetchAllAccountingCategories(
   config?: MewsCallConfig
 ): Promise<MewsAccountingCategory[]> {

@@ -28,30 +28,6 @@ export interface Payment {
   notes: string | null;
 }
 
-export interface AccountingItem {
-  id: string;
-  accountId: string;
-  accountName: string;
-  billId: string | null;
-  serviceId: string | null;
-  serviceName: string | null;
-  outletId: string | null;
-  outletName: string | null;
-  accountingCategoryId: string | null;
-  accountingCategoryName: string | null;
-  ledgerAccountCode: string | null;
-  consumedAt: string;
-  type: string;
-  name: string;
-  unitCount: number;
-  unitCost: number;
-  taxRate: number | null;
-  netAmount: number;
-  taxAmount: number;
-  currency: string;
-  source: "ledger" | "outlet";
-}
-
 export interface AccountingCategory {
   id: string;
   name: string;
@@ -59,14 +35,6 @@ export interface AccountingCategory {
   costCenterCode: string | null;
   externalIdentifier: string | null;
   type: string | null;
-}
-
-export interface LedgerBalance {
-  accountId: string;
-  accountName: string;
-  ledgerType: string;
-  amount: number;
-  currency: string;
 }
 
 export interface DashboardStats {
@@ -78,6 +46,6 @@ export interface DashboardStats {
   multiCurrency: boolean;
 }
 
-export type ExportType = "bills" | "payments" | "accounting-items";
+export type ExportType = "bills" | "payments";
 
 export type BillState = "Open" | "Closed" | "Overdue";

@@ -2,17 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   fetchAllBills,
   fetchAllPayments,
-  fetchAllLedgerEntries,
-  fetchAllOutletItems,
   fetchAccountsForIds,
-  fetchAllOutlets,
-  fetchAllAccountingCategories,
   MewsApiError,
   MewsCallConfig,
 } from "@/lib/mews/client";
-import { mapBills, mapPayments, mapLedgerEntries, mapOutletItems } from "@/lib/mews/mappers";
+import { mapBills, mapPayments } from "@/lib/mews/mappers";
 import { generateCsv } from "@/lib/csv/generate";
-import { billsCsvSchema, paymentsCsvSchema, accountingItemsCsvSchema } from "@/lib/csv/schemas";
+import { billsCsvSchema, paymentsCsvSchema } from "@/lib/csv/schemas";
 import type { ExportType } from "@/types/app";
 
 function extractConfig(req: NextRequest): MewsCallConfig {
@@ -52,29 +48,6 @@ export async function POST(req: NextRequest) {
       const rawPayments = await fetchAllPayments({ StartUtc: startUtc, EndUtc: endUtc }, config);
       const rawAccounts = await fetchAccountsForIds(rawPayments.map((p) => p.AccountId), config);
       csv = generateCsv(mapPayments(rawPayments, rawAccounts), paymentsCsvSchema);
-    } else if (type === "accounting-items") {
-      const [rawLedgerEntries, outletResult, rawOutlets, rawCategories] =
-        await Promise.all([
-          fetchAllLedgerEntries({ StartUtc: startUtc, EndUtc: endUtc }, config),
-          fetchAllOutletItems({ StartUtc: startUtc, EndUtc: endUtc }, config).catch((err) => {
-            if (err instanceof MewsApiError && (err.status === 404 || err.status === 400)) {
-              return { outletItems: [], outletBills: [] };
-            }
-            throw err;
-          }),
-          fetchAllOutlets(config),
-          fetchAllAccountingCategories(config),
-        ]);
-
-      const accountIds = rawLedgerEntries
-        .map((e) => e.AccountId)
-        .filter((id): id is string => !!id);
-      const rawAccounts = await fetchAccountsForIds(accountIds, config);
-      const items = [
-        ...mapLedgerEntries(rawLedgerEntries, rawAccounts, rawCategories),
-        ...mapOutletItems(outletResult.outletItems, outletResult.outletBills, rawOutlets, rawCategories),
-      ];
-      csv = generateCsv(items, accountingItemsCsvSchema);
     } else {
       return NextResponse.json({ error: "Invalid export type" }, { status: 400 });
     }

@@ -3,24 +3,10 @@ export interface MewsCurrency {
   Currency: string;
 }
 
-// Richer monetary amount returned by orderItems (includes net/tax breakdown)
-export interface MewsAmount {
-  Currency: string;
-  NetValue: number | null;
-  GrossValue: number | null;
-  TaxValues: Array<{ Code: string; Value: number }> | null;
-}
-
 export interface MewsRequestBase {
   ClientToken: string;
   AccessToken: string;
   Client: string;
-}
-
-// Shared time interval filter object used by all endpoints
-export interface MewsTimeInterval {
-  StartUtc: string;
-  EndUtc: string;
 }
 
 // Bills
@@ -65,62 +51,6 @@ export interface MewsPaymentsResponse {
   Cursor: string | null;
 }
 
-// Ledger Entries (actual ledger transactions — replaces orderItems)
-export interface MewsLedgerEntry {
-  Id: string;
-  AccountId: string | null;
-  AccountingCategoryId: string | null;
-  Amount: MewsCurrency;
-  Type: string;
-  CreatedUtc: string;
-  BillId?: string | null;
-  Notes?: string | null;
-}
-
-export interface MewsLedgerEntriesResponse {
-  LedgerEntries: MewsLedgerEntry[];
-  Cursor: string | null;
-}
-
-// Ledger Balances (aggregate totals per account/ledger type)
-export interface MewsLedgerBalance {
-  AccountId: string | null;
-  LedgerType: string;
-  Amount: MewsCurrency;
-}
-
-export interface MewsLedgerBalancesResponse {
-  LedgerBalances: MewsLedgerBalance[];
-}
-
-// Outlet Items (POS / point-of-sale revenue items)
-export interface MewsOutletItem {
-  Id: string;
-  BillId: string | null;
-  AccountingCategoryId: string | null;
-  Type: string;
-  Name: string;
-  UnitCount: number;
-  UnitAmount: MewsCurrency | null;
-  CreatedUtc: string;
-  ConsumedUtc: string;
-  Notes: string | null;
-}
-
-export interface MewsOutletBill {
-  Id: string;
-  OutletId: string;
-  Number: string | null;
-  ClosedUtc: string | null;
-  Notes: string | null;
-}
-
-export interface MewsOutletItemsResponse {
-  OutletItems: MewsOutletItem[];
-  OutletBills: MewsOutletBill[];
-  Cursor: string | null;
-}
-
 // Accounts (guests / companies)
 export interface MewsAccount {
   Id: string;
@@ -133,28 +63,6 @@ export interface MewsAccount {
 export interface MewsAccountsResponse {
   Accounts: MewsAccount[];
   Cursor: string | null;
-}
-
-// Services
-export interface MewsService {
-  Id: string;
-  Name: string;
-  IsActive: boolean;
-}
-
-export interface MewsServicesResponse {
-  Services: MewsService[];
-}
-
-// Outlets
-export interface MewsOutlet {
-  Id: string;
-  Name: string;
-  IsActive: boolean;
-}
-
-export interface MewsOutletsResponse {
-  Outlets: MewsOutlet[];
 }
 
 // Accounting Categories (chart of accounts)

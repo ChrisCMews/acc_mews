@@ -1,4 +1,4 @@
-import type { Bill, Payment, AccountingItem } from "@/types/app";
+import type { Bill, Payment } from "@/types/app";
 
 export type CsvColumn<T> = {
   header: string;
@@ -33,22 +33,3 @@ export const paymentsCsvSchema: CsvColumn<Payment>[] = [
   { header: "Notes",         value: (r) => r.notes ?? "" },
 ];
 
-export const accountingItemsCsvSchema: CsvColumn<AccountingItem>[] = [
-  { header: "Item ID",                value: (r) => r.id },
-  { header: "Source",                 value: (r) => r.source === "outlet" ? "Outlet" : "Order" },
-  { header: "Account Name",           value: (r) => r.accountName },
-  { header: "Bill ID",                value: (r) => r.billId ?? "" },
-  { header: "Accounting Category",    value: (r) => r.accountingCategoryName ?? "" },
-  { header: "Ledger Account Code",    value: (r) => r.ledgerAccountCode ?? "" },
-  { header: "Service",                value: (r) => r.serviceName ?? "" },
-  { header: "Outlet",                 value: (r) => r.outletName ?? "" },
-  { header: "Type",                   value: (r) => r.type },
-  { header: "Description",            value: (r) => r.name },
-  { header: "Consumed Date",          value: (r) => r.consumedAt },
-  { header: "Unit Count",             value: (r) => r.unitCount },
-  { header: "Unit Cost",              value: (r) => r.unitCost },
-  { header: "Tax Rate %",             value: (r) => r.taxRate ?? "" },
-  { header: "Net Amount",             value: (r) => r.netAmount },
-  { header: "Tax Amount",             value: (r) => r.taxAmount },
-  { header: "Currency",               value: (r) => r.currency },
-];

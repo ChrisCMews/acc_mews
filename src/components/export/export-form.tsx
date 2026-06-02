@@ -20,11 +20,6 @@ import { getStoredCredentials } from "@/lib/credentials";
 const exportOptions: { value: ExportType; label: string; description: string }[] = [
   { value: "bills", label: "Bills / Invoices", description: "All bills with tax breakdown" },
   { value: "payments", label: "Payments", description: "All charged and pending payments" },
-  {
-    value: "accounting-items",
-    label: "Accounting Items",
-    description: "Revenue line items with ledger codes",
-  },
 ];
 
 export function ExportForm() {
@@ -130,14 +125,6 @@ export function ExportForm() {
             <>
               <li>Payment ID, Account Name, Bill ID, Payment Type, Status</li>
               <li>Charged Date, Amount, Currency, Notes</li>
-            </>
-          )}
-          {exportType === "accounting-items" && (
-            <>
-              <li>Item ID, Account Name, Bill ID</li>
-              <li>Accounting Category, Ledger Account Code</li>
-              <li>Service, Outlet, Type, Description, Consumed Date</li>
-              <li>Unit Count, Unit Cost, Tax Rate %, Net Amount, Tax Amount, Currency</li>
             </>
           )}
         </ul>
