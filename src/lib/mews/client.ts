@@ -86,7 +86,7 @@ const ALL_LEDGER_TYPES = ["Revenue", "Tax", "Payment", "Deposit", "Guest", "City
 export async function fetchAllLedgerBalances(
   params: { Start: string; End: string; LedgerTypes?: string[] },
   config?: MewsCallConfig
-): Promise<MewsLedgerBalance[]> {
+): Promise<{ balances: MewsLedgerBalance[]; failedTypes: string[] }> {
   const types = params.LedgerTypes ?? ALL_LEDGER_TYPES;
   const results = await Promise.allSettled(
     types.map((ledgerType) =>
@@ -102,9 +102,23 @@ export async function fetchAllLedgerBalances(
       )
     )
   );
-  return results
-    .filter((r): r is PromiseFulfilledResult<MewsLedgerBalance[]> => r.status === "fulfilled")
-    .flatMap((r) => r.value);
+
+  const failedTypes: string[] = [];
+  const balances: MewsLedgerBalance[] = [];
+
+  results.forEach((result, i) => {
+    if (result.status === "fulfilled") {
+      balances.push(...result.value);
+    } else {
+      failedTypes.push(types[i]);
+    }
+  });
+
+  if (failedTypes.length === types.length) {
+    throw new Error(`All LedgerType requests failed. First error: ${results[0].status === "rejected" ? String((results[0] as PromiseRejectedResult).reason) : "unknown"}`);
+  }
+
+  return { balances, failedTypes };
 }
 
 export async function fetchAllAccountingCategories(

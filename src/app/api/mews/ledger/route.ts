@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const config = extractConfig(req);
 
   try {
-    const balances = await fetchAllLedgerBalances({ Start: date, End: date }, config);
+    const { balances, failedTypes } = await fetchAllLedgerBalances({ Start: date, End: date }, config);
 
     const byType = new Map<string, { grossActivity: number; netActivity: number; currency: string }>();
 
@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
     const isBalanced = Math.abs(netBalance) < 0.01;
 
     const report: LedgerReport = { date, activities, netBalance, currency, isBalanced };
-    return NextResponse.json({ report });
+    return NextResponse.json({ report, failedTypes: failedTypes.length ? failedTypes : undefined });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     const details = err instanceof MewsApiError ? err.details : undefined;
