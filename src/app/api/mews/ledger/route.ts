@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllLedgerBalances, fetchTourismTaxTotal, MewsCallConfig, MewsApiError } from "@/lib/mews/client";
+import { fetchAllLedgerBalances, MewsCallConfig, MewsApiError } from "@/lib/mews/client";
 import type { LedgerActivity, LedgerReport } from "@/types/app";
 
 export const maxDuration = 60;
@@ -19,10 +19,7 @@ export async function GET(req: NextRequest) {
   const config = extractConfig(req);
 
   try {
-    const [{ balances, failedTypes }, tourismTax] = await Promise.all([
-      fetchAllLedgerBalances({ Start: date, End: date }, config),
-      fetchTourismTaxTotal(date, config).catch(() => ({ grossTotal: 0, currency: "EUR" })),
-    ]);
+    const { balances, failedTypes } = await fetchAllLedgerBalances({ Start: date, End: date }, config);
 
     const byType = new Map<string, { grossActivity: number; netActivity: number; currency: string }>();
 
@@ -38,17 +35,6 @@ export async function GET(req: NextRequest) {
         existing.netActivity += netActivity;
       } else {
         byType.set(key, { grossActivity, netActivity, currency });
-      }
-    }
-
-    // Add tourism/city tax (Taxe de séjour) to NonRevenue — these items live in
-    // accountingItems/getAll because the NonRevenue LedgerType returns 500.
-    if (tourismTax.grossTotal !== 0) {
-      const existing = byType.get("NonRevenue");
-      if (existing) {
-        existing.grossActivity += tourismTax.grossTotal;
-      } else {
-        byType.set("NonRevenue", { grossActivity: tourismTax.grossTotal, netActivity: tourismTax.grossTotal, currency: tourismTax.currency });
       }
     }
 
