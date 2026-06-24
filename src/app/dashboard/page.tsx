@@ -6,8 +6,6 @@ import { CredentialsCard } from "@/components/dashboard/credentials-card";
 import { StatsCard } from "@/components/dashboard/stats-card";
 import { useLedger } from "@/hooks/use-ledger";
 import { formatCurrency } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   TrendingUp,
   Receipt,
@@ -15,7 +13,6 @@ import {
   Wallet,
   Users,
   Building,
-  Scale,
   type LucideIcon,
 } from "lucide-react";
 import type { LedgerActivity } from "@/types/app";
@@ -71,7 +68,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {LEDGER_CONFIG.map(({ key, label, icon: Icon }) => {
             const activity = report ? getActivity(report.activities, key) : undefined;
             const currency = activity?.currency ?? report?.currency ?? "EUR";
@@ -85,35 +82,6 @@ export default function DashboardPage() {
               />
             );
           })}
-
-          {isLoading ? (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Net Balance</CardTitle>
-                <Scale className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-32" />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Net Balance</CardTitle>
-                <Scale className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {report ? formatCurrency(report.netBalance, report.currency) : formatCurrency(0, "EUR")}
-                </div>
-                {report?.isBalanced && (
-                  <span className="mt-1 inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                    Ledgers balanced
-                  </span>
-                )}
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         <CredentialsCard />

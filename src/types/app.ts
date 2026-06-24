@@ -18,7 +18,5 @@ export interface LedgerActivity {
 export interface LedgerReport {
   date: string;
   activities: LedgerActivity[];
-  netBalance: number;
   currency: string;
-  isBalanced: boolean;
 }

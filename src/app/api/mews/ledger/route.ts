@@ -47,10 +47,7 @@ export async function GET(req: NextRequest) {
     }));
 
     const currency = activities[0]?.currency ?? "EUR";
-    const netBalance = activities.reduce((sum, a) => sum + a.grossActivity, 0);
-    const isBalanced = Math.abs(netBalance) < 0.01;
-
-    const report: LedgerReport = { date, activities, netBalance, currency, isBalanced };
+    const report: LedgerReport = { date, activities, currency };
     return NextResponse.json({ report, failedTypes: failedTypes.length ? failedTypes : undefined });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
