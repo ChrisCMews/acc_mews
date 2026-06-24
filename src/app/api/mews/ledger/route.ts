@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAllLedgerBalances, MewsCallConfig, MewsApiError } from "@/lib/mews/client";
 import type { LedgerActivity, LedgerReport } from "@/types/app";
 
+export const maxDuration = 60;
+
 function extractConfig(req: NextRequest): MewsCallConfig {
   return {
     clientToken: req.headers.get("x-mews-client-token") ?? undefined,

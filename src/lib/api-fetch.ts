@@ -13,5 +13,12 @@ export function apiFetcher(url: string): Promise<any> {
   if (creds.accessToken) headers["x-mews-access-token"] = creds.accessToken;
   if (creds.baseUrl) headers["x-mews-base-url"] = creds.baseUrl;
 
-  return fetch(url, { headers }).then((r) => r.json());
+  return fetch(url, { headers }).then(async (r) => {
+    const text = await r.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Server returned non-JSON response (status ${r.status}): ${text.slice(0, 200)}`);
+    }
+  });
 }
