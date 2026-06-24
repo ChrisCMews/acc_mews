@@ -90,6 +90,7 @@ export async function fetchAllLedgerBalances(
 ): Promise<{ balances: MewsLedgerBalance[]; failedTypes: string[] }> {
   const types = params.LedgerTypes ?? ALL_LEDGER_TYPES;
   const failedTypes: string[] = [];
+  const failedErrors: string[] = [];
   const balances: MewsLedgerBalance[] = [];
 
   for (const ledgerType of types) {
@@ -106,7 +107,9 @@ export async function fetchAllLedgerBalances(
       );
       balances.push(...items);
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       failedTypes.push(ledgerType);
+      failedErrors.push(`${ledgerType}: ${msg}`);
       if (err instanceof MewsApiError && err.status === 429) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
@@ -114,7 +117,7 @@ export async function fetchAllLedgerBalances(
   }
 
   if (failedTypes.length === types.length) {
-    throw new Error(`All LedgerType requests failed. First error: ${failedTypes[0]}`);
+    throw new Error(`All LedgerType requests failed — ${failedErrors.join(" | ")}`);
   }
 
   return { balances, failedTypes };
