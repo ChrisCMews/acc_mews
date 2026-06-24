@@ -95,17 +95,18 @@ export async function fetchAllLedgerBalances(
 
   for (const ledgerType of types) {
     try {
-      const items = await paginatedFetch<MewsLedgerBalance, MewsLedgerBalancesResponse>(
+      // No cursor following — for a single-day dashboard query one page is sufficient
+      // and paginating 7 types exceeds Vercel's function timeout.
+      const res = await mewsPost<MewsLedgerBalancesResponse>(
         "/api/connector/v1/ledgerBalances/getAll",
         {
           Date: { Start: params.Start, End: params.End },
           LedgerTypes: [ledgerType],
+          Limitation: { Count: 100 },
         },
-        (r) => r.LedgerBalances,
-        config,
-        (r) => r.Cursor
+        config
       );
-      balances.push(...items);
+      balances.push(...res.LedgerBalances);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       failedTypes.push(ledgerType);
