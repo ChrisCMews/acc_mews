@@ -27,12 +27,14 @@ export async function GET(req: NextRequest) {
       const grossActivity = b.ClosingBalance.GrossValue - b.OpeningBalance.GrossValue;
       const netActivity = b.ClosingBalance.NetValue - b.OpeningBalance.NetValue;
       const currency = b.ClosingBalance.Currency;
-      const existing = byType.get(b.LedgerType);
+      // Mews UI merges Tax into NonRevenue — do the same here
+      const key = b.LedgerType === "Tax" ? "NonRevenue" : b.LedgerType;
+      const existing = byType.get(key);
       if (existing) {
         existing.grossActivity += grossActivity;
         existing.netActivity += netActivity;
       } else {
-        byType.set(b.LedgerType, { grossActivity, netActivity, currency });
+        byType.set(key, { grossActivity, netActivity, currency });
       }
     }
 
