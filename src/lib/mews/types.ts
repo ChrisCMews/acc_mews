@@ -10,3 +10,23 @@ export interface MewsAccountingCategory {
 export interface MewsAccountingCategoriesResponse {
   AccountingCategories: MewsAccountingCategory[];
 }
+
+export interface MewsBalanceAmount {
+  Currency: string;
+  NetValue: number;
+  GrossValue: number;
+  TaxValues: { Code: string; Value: number }[] | null;
+}
+
+export interface MewsLedgerBalance {
+  EnterpriseId: string;
+  Date: string;
+  LedgerType: string;
+  OpeningBalance: MewsBalanceAmount;
+  ClosingBalance: MewsBalanceAmount;
+}
+
+export interface MewsLedgerBalancesResponse {
+  LedgerBalances: MewsLedgerBalance[];
+  Cursor: string | null;
+}

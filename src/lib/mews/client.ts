@@ -1,6 +1,8 @@
 import type {
   MewsAccountingCategoriesResponse,
   MewsAccountingCategory,
+  MewsLedgerBalance,
+  MewsLedgerBalancesResponse,
 } from "./types";
 
 const BASE_URL = process.env.MEWS_API_BASE_URL ?? "https://api.mews-demo.com";
@@ -53,6 +55,47 @@ async function mewsPost<TResponse>(
   }
 
   return res.json() as Promise<TResponse>;
+}
+
+async function paginatedFetch<TItem, TResponse>(
+  path: string,
+  body: Record<string, unknown>,
+  getItems: (response: TResponse) => TItem[],
+  config?: MewsCallConfig,
+  getCursor?: (response: TResponse) => string | null | undefined
+): Promise<TItem[]> {
+  const all: TItem[] = [];
+  let cursor: string | undefined = undefined;
+
+  do {
+    const requestBody: Record<string, unknown> = cursor
+      ? { ...body, Cursor: cursor, Limitation: { Count: 1000 } }
+      : { ...body, Limitation: { Count: 1000 } };
+    const res = await mewsPost<TResponse>(path, requestBody, config);
+    const items = getItems(res);
+    all.push(...items);
+    cursor = getCursor ? (getCursor(res) ?? undefined) : undefined;
+  } while (cursor);
+
+  return all;
+}
+
+const ALL_LEDGER_TYPES = ["Revenue", "Tax", "Payment", "Deposit", "Guest", "City", "NonRevenue"];
+
+export async function fetchAllLedgerBalances(
+  params: { Start: string; End: string; LedgerTypes?: string[] },
+  config?: MewsCallConfig
+): Promise<MewsLedgerBalance[]> {
+  return paginatedFetch<MewsLedgerBalance, MewsLedgerBalancesResponse>(
+    "/api/connector/v1/ledgerBalances/getAll",
+    {
+      Date: { Start: params.Start, End: params.End },
+      LedgerTypes: params.LedgerTypes ?? ALL_LEDGER_TYPES,
+    },
+    (r) => r.LedgerBalances,
+    config,
+    (r) => r.Cursor
+  );
 }
 
 export async function fetchAllAccountingCategories(
