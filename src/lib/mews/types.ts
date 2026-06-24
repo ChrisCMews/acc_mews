@@ -30,3 +30,21 @@ export interface MewsLedgerBalancesResponse {
   LedgerBalances: MewsLedgerBalance[];
   Cursor: string | null;
 }
+
+export interface MewsAccountingItem {
+  Id: string;
+  AccountingCategoryId: string | null;
+  Amount: {
+    Currency: string;
+    NetValue: number;
+    GrossValue: number;
+    TaxValues: { Code: string; Value: number }[] | null;
+  };
+  ConsumedUtc: string;
+  Type: string;
+}
+
+export interface MewsAccountingItemsResponse {
+  AccountingItems: MewsAccountingItem[];
+  Cursor: string | null;
+}

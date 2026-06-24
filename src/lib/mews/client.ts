@@ -1,6 +1,8 @@
 import type {
   MewsAccountingCategoriesResponse,
   MewsAccountingCategory,
+  MewsAccountingItem,
+  MewsAccountingItemsResponse,
   MewsLedgerBalance,
   MewsLedgerBalancesResponse,
 } from "./types";
@@ -124,6 +126,51 @@ export async function fetchAllLedgerBalances(
   }
 
   return { balances, failedTypes };
+}
+
+// Tax category IDs for tourism/city tax items (Taxe de séjour).
+// NonRevenue LedgerType returns 500, so we fetch these items separately.
+const TOURISM_TAX_CATEGORY_IDS = [
+  "3ae954c6-fe7b-4359-8867-ae8600db874c", // Tourism Tax
+  "addd7f56-e24c-4687-b31f-ae8600db874c", // City Tax
+  "713a2d4c-a010-4088-942f-ae8600db874c", // City Tax 2
+];
+
+export async function fetchTourismTaxTotal(
+  date: string,
+  config?: MewsCallConfig
+): Promise<{ grossTotal: number; currency: string }> {
+  // ConsumedUtc is a UTC datetime range — cover the full calendar day
+  const startUtc = `${date}T00:00:00Z`;
+  const endUtc = `${date}T23:59:59Z`;
+
+  let cursor: string | undefined = undefined;
+  let grossTotal = 0;
+  let currency = "EUR";
+
+  do {
+    const body: Record<string, unknown> = {
+      AccountingCategoryIds: TOURISM_TAX_CATEGORY_IDS,
+      ConsumedUtc: { StartUtc: startUtc, EndUtc: endUtc },
+      Limitation: { Count: 100 },
+    };
+    if (cursor) body.Cursor = cursor;
+
+    const res = await mewsPost<MewsAccountingItemsResponse>(
+      "/api/connector/v1/accountingItems/getAll",
+      body,
+      config
+    );
+
+    for (const item of res.AccountingItems) {
+      grossTotal += item.Amount.GrossValue;
+      currency = item.Amount.Currency;
+    }
+
+    cursor = res.Cursor ?? undefined;
+  } while (cursor);
+
+  return { grossTotal, currency };
 }
 
 export async function fetchAllAccountingCategories(
