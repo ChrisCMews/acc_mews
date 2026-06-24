@@ -88,7 +88,7 @@ export async function fetchAllLedgerBalances(
   config?: MewsCallConfig
 ): Promise<MewsLedgerBalance[]> {
   const types = params.LedgerTypes ?? ALL_LEDGER_TYPES;
-  const results = await Promise.all(
+  const results = await Promise.allSettled(
     types.map((ledgerType) =>
       paginatedFetch<MewsLedgerBalance, MewsLedgerBalancesResponse>(
         "/api/connector/v1/ledgerBalances/getAll",
@@ -102,7 +102,9 @@ export async function fetchAllLedgerBalances(
       )
     )
   );
-  return results.flat();
+  return results
+    .filter((r): r is PromiseFulfilledResult<MewsLedgerBalance[]> => r.status === "fulfilled")
+    .flatMap((r) => r.value);
 }
 
 export async function fetchAllAccountingCategories(
