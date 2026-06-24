@@ -80,7 +80,9 @@ async function paginatedFetch<TItem, TResponse>(
   return all;
 }
 
-const ALL_LEDGER_TYPES = ["Revenue", "Tax", "Payment", "Deposit", "Guest", "City", "NonRevenue"];
+// NonRevenue returns 500 from the Mews API — excluded until fixed upstream.
+// Taxe de séjour items it would contain are only accessible via the async ledger entries export.
+const ALL_LEDGER_TYPES = ["Revenue", "Tax", "Payment", "Deposit", "Guest", "City"];
 
 // Mews returns 500 when multiple LedgerTypes are requested together, and rate-limits parallel
 // requests (429). Fetch each type sequentially with a small delay.
