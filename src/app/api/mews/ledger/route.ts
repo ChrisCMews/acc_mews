@@ -12,7 +12,8 @@ function extractConfig(req: NextRequest): MewsCallConfig {
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const date = searchParams.get("date") ?? new Date().toISOString().slice(0, 10);
+  const _d = new Date(); _d.setDate(_d.getDate() - 10);
+  const date = searchParams.get("date") ?? _d.toISOString().slice(0, 10);
   const config = extractConfig(req);
 
   try {

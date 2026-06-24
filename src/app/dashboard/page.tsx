@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import type { LedgerActivity } from "@/types/app";
 
-const today = new Date().toISOString().slice(0, 10);
+const _d = new Date(); _d.setDate(_d.getDate() - 10);
+const today = _d.toISOString().slice(0, 10);
 
 const LEDGER_CONFIG: {
   key: string;
