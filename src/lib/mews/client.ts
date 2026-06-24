@@ -69,8 +69,8 @@ async function paginatedFetch<TItem, TResponse>(
 
   do {
     const requestBody: Record<string, unknown> = cursor
-      ? { ...body, Cursor: cursor, Limitation: { Count: 1000 } }
-      : { ...body, Limitation: { Count: 1000 } };
+      ? { ...body, Cursor: cursor, Limitation: { Count: 100 } }
+      : { ...body, Limitation: { Count: 100 } };
     const res = await mewsPost<TResponse>(path, requestBody, config);
     const items = getItems(res);
     all.push(...items);
@@ -82,20 +82,27 @@ async function paginatedFetch<TItem, TResponse>(
 
 const ALL_LEDGER_TYPES = ["Revenue", "Tax", "Payment", "Deposit", "Guest", "City", "NonRevenue"];
 
+// Mews returns 500 when multiple LedgerTypes are requested together — fetch each type separately.
 export async function fetchAllLedgerBalances(
   params: { Start: string; End: string; LedgerTypes?: string[] },
   config?: MewsCallConfig
 ): Promise<MewsLedgerBalance[]> {
-  return paginatedFetch<MewsLedgerBalance, MewsLedgerBalancesResponse>(
-    "/api/connector/v1/ledgerBalances/getAll",
-    {
-      Date: { Start: params.Start, End: params.End },
-      LedgerTypes: params.LedgerTypes ?? ALL_LEDGER_TYPES,
-    },
-    (r) => r.LedgerBalances,
-    config,
-    (r) => r.Cursor
+  const types = params.LedgerTypes ?? ALL_LEDGER_TYPES;
+  const results = await Promise.all(
+    types.map((ledgerType) =>
+      paginatedFetch<MewsLedgerBalance, MewsLedgerBalancesResponse>(
+        "/api/connector/v1/ledgerBalances/getAll",
+        {
+          Date: { Start: params.Start, End: params.End },
+          LedgerTypes: [ledgerType],
+        },
+        (r) => r.LedgerBalances,
+        config,
+        (r) => r.Cursor
+      )
+    )
   );
+  return results.flat();
 }
 
 export async function fetchAllAccountingCategories(
