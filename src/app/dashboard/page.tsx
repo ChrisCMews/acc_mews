@@ -13,6 +13,7 @@ import {
   Wallet,
   Users,
   Building,
+  Scale,
   type LucideIcon,
 } from "lucide-react";
 import type { LedgerActivity } from "@/types/app";
@@ -33,8 +34,17 @@ const LEDGER_CONFIG: {
   { key: "City", label: "City Ledger", icon: Building },
 ];
 
+const NET_BALANCE_KEYS = ["Revenue", "NonRevenue", "Payment", "Deposit", "Guest", "City"];
+
 function getActivity(activities: LedgerActivity[], ledgerType: string): LedgerActivity | undefined {
   return activities.find((a) => a.ledgerType === ledgerType);
+}
+
+function computeNetBalance(activities: LedgerActivity[]): number {
+  return NET_BALANCE_KEYS.reduce((sum, key) => {
+    const a = activities.find((x) => x.ledgerType === key);
+    return sum + (a?.grossActivity ?? 0);
+  }, 0);
 }
 
 export default function DashboardPage() {
@@ -82,6 +92,20 @@ export default function DashboardPage() {
               />
             );
           })}
+          {(() => {
+            const currency = report?.currency ?? "EUR";
+            const net = report ? computeNetBalance(report.activities) : 0;
+            const balanced = Math.abs(net) < 0.01;
+            return (
+              <StatsCard
+                title="Net Balance"
+                value={isLoading ? "" : formatCurrency(net, currency)}
+                subtitle={!isLoading && report ? (balanced ? "Ledgers balanced" : "Ledgers not balanced") : undefined}
+                icon={Scale}
+                isLoading={isLoading}
+              />
+            );
+          })()}
         </div>
 
         <CredentialsCard />
