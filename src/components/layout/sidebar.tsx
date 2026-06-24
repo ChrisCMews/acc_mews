@@ -5,8 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  FileText,
-  CreditCard,
   Download,
   Settings,
   BookOpen,
@@ -18,10 +16,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/bills", label: "Bills", icon: FileText },
-  { href: "/payments", label: "Payments", icon: CreditCard },
   { href: "/accounting-categories", label: "Chart of Accounts", icon: BookOpen },
-  { href: "/export", label: "Export CSV", icon: Download },
   { href: "/export-api", label: "Export API", icon: Zap },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

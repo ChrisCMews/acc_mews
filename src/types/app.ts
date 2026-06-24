@@ -1,33 +1,3 @@
-export interface Bill {
-  id: string;
-  number: string;
-  accountId: string;
-  accountName: string;
-  issuedAt: string;
-  dueAt: string | null;
-  paidAt: string | null;
-  state: "Open" | "Closed" | "Overdue";
-  type: "Invoice" | "Receipt" | "CreditNote";
-  netAmount: number;
-  taxAmount: number;
-  grossAmount: number;
-  currency: string;
-  notes: string | null;
-}
-
-export interface Payment {
-  id: string;
-  accountId: string;
-  accountName: string;
-  billId: string | null;
-  chargedAt: string | null;
-  state: string;
-  type: string;
-  amount: number;
-  currency: string;
-  notes: string | null;
-}
-
 export interface AccountingCategory {
   id: string;
   name: string;
@@ -36,16 +6,3 @@ export interface AccountingCategory {
   externalIdentifier: string | null;
   type: string | null;
 }
-
-export interface DashboardStats {
-  totalRevenue: number;
-  totalPayments: number;
-  outstandingBalance: number;
-  billCount: number;
-  currency: string;
-  multiCurrency: boolean;
-}
-
-export type ExportType = "bills" | "payments";
-
-export type BillState = "Open" | "Closed" | "Overdue";
