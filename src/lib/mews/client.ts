@@ -82,15 +82,19 @@ async function paginatedFetch<TItem, TResponse>(
 
 const ALL_LEDGER_TYPES = ["Revenue", "Tax", "Payment", "Deposit", "Guest", "City", "NonRevenue"];
 
-// Mews returns 500 when multiple LedgerTypes are requested together — fetch each type separately.
+// Mews returns 500 when multiple LedgerTypes are requested together, and rate-limits parallel
+// requests (429). Fetch each type sequentially with a small delay.
 export async function fetchAllLedgerBalances(
   params: { Start: string; End: string; LedgerTypes?: string[] },
   config?: MewsCallConfig
 ): Promise<{ balances: MewsLedgerBalance[]; failedTypes: string[] }> {
   const types = params.LedgerTypes ?? ALL_LEDGER_TYPES;
-  const results = await Promise.allSettled(
-    types.map((ledgerType) =>
-      paginatedFetch<MewsLedgerBalance, MewsLedgerBalancesResponse>(
+  const failedTypes: string[] = [];
+  const balances: MewsLedgerBalance[] = [];
+
+  for (const ledgerType of types) {
+    try {
+      const items = await paginatedFetch<MewsLedgerBalance, MewsLedgerBalancesResponse>(
         "/api/connector/v1/ledgerBalances/getAll",
         {
           Date: { Start: params.Start, End: params.End },
@@ -99,23 +103,18 @@ export async function fetchAllLedgerBalances(
         (r) => r.LedgerBalances,
         config,
         (r) => r.Cursor
-      )
-    )
-  );
-
-  const failedTypes: string[] = [];
-  const balances: MewsLedgerBalance[] = [];
-
-  results.forEach((result, i) => {
-    if (result.status === "fulfilled") {
-      balances.push(...result.value);
-    } else {
-      failedTypes.push(types[i]);
+      );
+      balances.push(...items);
+    } catch (err) {
+      failedTypes.push(ledgerType);
+      if (err instanceof MewsApiError && err.status === 429) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
     }
-  });
+  }
 
   if (failedTypes.length === types.length) {
-    throw new Error(`All LedgerType requests failed. First error: ${results[0].status === "rejected" ? String((results[0] as PromiseRejectedResult).reason) : "unknown"}`);
+    throw new Error(`All LedgerType requests failed. First error: ${failedTypes[0]}`);
   }
 
   return { balances, failedTypes };
