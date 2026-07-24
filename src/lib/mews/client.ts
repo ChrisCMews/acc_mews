@@ -1,10 +1,10 @@
 import type {
   MewsAccountingCategoriesResponse,
   MewsAccountingCategory,
-  MewsAccountingItem,
-  MewsAccountingItemsResponse,
   MewsLedgerBalance,
   MewsLedgerBalancesResponse,
+  MewsServicesResponse,
+  MewsOrderItemsResponse,
 } from "./types";
 
 const BASE_URL = process.env.MEWS_API_BASE_URL ?? "https://api.mews-demo.com";
@@ -128,21 +128,21 @@ export async function fetchAllLedgerBalances(
   return { balances, failedTypes };
 }
 
-// Tax category IDs for tourism/city tax items (Taxe de séjour).
-// NonRevenue LedgerType returns 500, so we fetch these items separately.
-const TOURISM_TAX_CATEGORY_IDS = [
-  "3ae954c6-fe7b-4359-8867-ae8600db874c", // Tourism Tax
-  "addd7f56-e24c-4687-b31f-ae8600db874c", // City Tax
-  "713a2d4c-a010-4088-942f-ae8600db874c", // City Tax 2
-];
-
-export async function fetchTourismTaxTotal(
+// City/tourist tax (Taxe de séjour) lives in the NonRevenue ledger, which returns 500
+// from ledgerBalances/getAll. Fetch it via orderItems/getAll with the CityTax type instead.
+// orderItems/getAll requires one of ServiceIds/BillIds/CreatedUtc/UpdatedUtc/ClosedUtc —
+// ConsumedUtc alone does not qualify — so all service IDs are passed to satisfy the rule.
+export async function fetchCityTaxTotal(
   date: string,
   config?: MewsCallConfig
 ): Promise<{ grossTotal: number; currency: string }> {
-  // ConsumedUtc is a UTC datetime range — cover the full calendar day
-  const startUtc = `${date}T00:00:00Z`;
-  const endUtc = `${date}T23:59:59Z`;
+  const servicesRes = await mewsPost<MewsServicesResponse>(
+    "/api/connector/v1/services/getAll",
+    { Limitation: { Count: 100 } },
+    config
+  );
+  const serviceIds = servicesRes.Services.map((s) => s.Id);
+  if (serviceIds.length === 0) return { grossTotal: 0, currency: "EUR" };
 
   let cursor: string | undefined = undefined;
   let grossTotal = 0;
@@ -150,24 +150,26 @@ export async function fetchTourismTaxTotal(
 
   do {
     const body: Record<string, unknown> = {
-      AccountingCategoryIds: TOURISM_TAX_CATEGORY_IDS,
-      ConsumedUtc: { StartUtc: startUtc, EndUtc: endUtc },
+      ServiceIds: serviceIds,
+      Types: ["CityTax"],
+      ConsumedUtc: { StartUtc: `${date}T00:00:00Z`, EndUtc: `${date}T23:59:59Z` },
       Limitation: { Count: 100 },
     };
     if (cursor) body.Cursor = cursor;
 
-    const res = await mewsPost<MewsAccountingItemsResponse>(
-      "/api/connector/v1/accountingItems/getAll",
+    const orderItemsRes = await mewsPost<MewsOrderItemsResponse>(
+      "/api/connector/v1/orderItems/getAll",
       body,
       config
     );
 
-    for (const item of res.AccountingItems) {
+    for (const item of orderItemsRes.OrderItems) {
+      if (item.AccountingState === "Canceled") continue;
       grossTotal += item.Amount.GrossValue;
       currency = item.Amount.Currency;
     }
 
-    cursor = res.Cursor ?? undefined;
+    cursor = orderItemsRes.Cursor ?? undefined;
   } while (cursor);
 
   return { grossTotal, currency };

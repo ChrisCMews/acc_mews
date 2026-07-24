@@ -31,7 +31,16 @@ export interface MewsLedgerBalancesResponse {
   Cursor: string | null;
 }
 
-export interface MewsAccountingItem {
+export interface MewsService {
+  Id: string;
+  IsActive: boolean;
+}
+
+export interface MewsServicesResponse {
+  Services: MewsService[];
+}
+
+export interface MewsOrderItem {
   Id: string;
   AccountingCategoryId: string | null;
   Amount: {
@@ -42,9 +51,10 @@ export interface MewsAccountingItem {
   };
   ConsumedUtc: string;
   Type: string;
+  AccountingState: string;
 }
 
-export interface MewsAccountingItemsResponse {
-  AccountingItems: MewsAccountingItem[];
+export interface MewsOrderItemsResponse {
+  OrderItems: MewsOrderItem[];
   Cursor: string | null;
 }

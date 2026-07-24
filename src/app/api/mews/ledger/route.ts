@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAllLedgerBalances, MewsCallConfig, MewsApiError } from "@/lib/mews/client";
+import { fetchAllLedgerBalances, fetchCityTaxTotal, MewsCallConfig, MewsApiError } from "@/lib/mews/client";
 import type { LedgerActivity, LedgerReport } from "@/types/app";
 
 export const maxDuration = 60;
@@ -19,7 +19,10 @@ export async function GET(req: NextRequest) {
   const config = extractConfig(req);
 
   try {
-    const { balances, failedTypes } = await fetchAllLedgerBalances({ Start: date, End: date }, config);
+    const [{ balances, failedTypes }, cityTax] = await Promise.all([
+      fetchAllLedgerBalances({ Start: date, End: date }, config),
+      fetchCityTaxTotal(date, config).catch(() => ({ grossTotal: 0, currency: "EUR" })),
+    ]);
 
     const byType = new Map<string, { grossActivity: number; netActivity: number; currency: string }>();
 
@@ -35,6 +38,21 @@ export async function GET(req: NextRequest) {
         existing.netActivity += netActivity;
       } else {
         byType.set(key, { grossActivity, netActivity, currency });
+      }
+    }
+
+    // City tax has no VAT — add it to both gross and net so taxActivity is unaffected.
+    if (cityTax.grossTotal !== 0) {
+      const existing = byType.get("NonRevenue");
+      if (existing) {
+        existing.grossActivity += cityTax.grossTotal;
+        existing.netActivity += cityTax.grossTotal;
+      } else {
+        byType.set("NonRevenue", {
+          grossActivity: cityTax.grossTotal,
+          netActivity: cityTax.grossTotal,
+          currency: cityTax.currency,
+        });
       }
     }
 
