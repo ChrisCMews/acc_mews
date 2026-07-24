@@ -153,9 +153,9 @@ export async function fetchCityTaxTotal(
       ServiceIds: serviceIds,
       Types: ["CityTax"],
       ConsumedUtc: { StartUtc: `${date}T00:00:00Z`, EndUtc: `${date}T23:59:59Z` },
-      Limitation: { Count: 100 },
+      // Mews pagination expects Cursor inside Limitation, not at the top level
+      Limitation: cursor ? { Count: 100, Cursor: cursor } : { Count: 100 },
     };
-    if (cursor) body.Cursor = cursor;
 
     const orderItemsRes = await mewsPost<MewsOrderItemsResponse>(
       "/api/connector/v1/orderItems/getAll",
